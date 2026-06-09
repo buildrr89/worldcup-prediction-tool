@@ -22,4 +22,4 @@ structural choice. Do not rewrite history — supersede with a new row instead.
 | 2026-06-10 | Make GitHub repository public. | Allow other developers to inspect, fork, build on, and contribute to the project. | Accepted |
 | 2026-06-10 | Use synthetic sample CSV data for public demo/testing. | Gives contributors a safe quick-start path without relying on copyrighted, paid, scraped, or real bookmaker data. | Accepted |
 | 2026-06-10 | Use GitHub issue templates and label source-of-truth for public collaboration. | Public contributors need structured ways to report bugs, propose data sources, and suggest improvements without violating local-first, licensing, privacy, or betting-disclaimer boundaries. | Accepted |
-
+| 2026-06-10 | Normalize imported historical match dates to ISO-8601 YYYY-MM-DD. | Raw mixed CSV date formats break chronological sorting, dashboard comparisons, and future analytics. | Accepted |

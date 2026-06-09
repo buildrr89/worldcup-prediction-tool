@@ -6,6 +6,7 @@ Computes baseline probabilities, and provides summary and backtesting evaluation
 """
 
 import csv
+from datetime import datetime
 import io
 from pathlib import Path
 from src.odds import decimal_odds_to_implied_probabilities
@@ -54,6 +55,36 @@ def parse_float(value: str) -> float | None:
         raise ValueError(f"Invalid float: {value!r}") from e
 
 
+def parse_date(value: str) -> str:
+    """Normalize parsed Football-Data CSV dates to ISO-8601 YYYY-MM-DD.
+
+    Strip whitespace. Raise ValueError for blank values or unsupported formats.
+    """
+    if not isinstance(value, str):
+        raise ValueError("Date value must be a string")
+    
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("Date value cannot be blank")
+
+    formats = [
+        "%d/%m/%y",
+        "%d/%m/%Y",
+        "%d-%m-%y",
+        "%d-%m-%Y",
+        "%Y-%m-%d"
+    ]
+
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(cleaned, fmt)
+            return dt.strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+
+    raise ValueError(f"Unsupported date format: {value!r}")
+
+
 def row_to_historical_match(row: dict, odds_prefix: str = "B365") -> dict | None:
     """Convert one Football-Data.co.uk CSV row to a clean dictionary.
 
@@ -80,7 +111,12 @@ def row_to_historical_match(row: dict, odds_prefix: str = "B365") -> dict | None
         if str(row[field]).strip() == "":
             return None
 
-    date_val = str(row["Date"]).strip()
+    date_raw = str(row["Date"])
+    try:
+        date_val = parse_date(date_raw)
+    except ValueError as e:
+        raise ValueError(f"Invalid date: {e}")
+
     home_val = str(row["HomeTeam"]).strip()
     away_val = str(row["AwayTeam"]).strip()
     ftr_val = str(row["FTR"]).strip()

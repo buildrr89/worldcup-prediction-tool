@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.importers.football_data_csv import (
     parse_result,
     parse_float,
+    parse_date,
     row_to_historical_match,
     load_csv,
     load_csv_file,
@@ -81,7 +82,7 @@ class TestFootballDataCSVImporter(unittest.TestCase):
         }
         match = row_to_historical_match(row, odds_prefix="B365")
         self.assertIsNotNone(match)
-        self.assertEqual(match["date"], "18/12/2022")
+        self.assertEqual(match["date"], "2022-12-18")
         self.assertEqual(match["home_team"], "Argentina")
         self.assertEqual(match["away_team"], "France")
         self.assertEqual(match["actual_result"], "draw")
@@ -368,6 +369,55 @@ class TestFootballDataCSVImporter(unittest.TestCase):
         for match in matches:
             self.assertIn(match["home_team"], allowlist)
             self.assertIn(match["away_team"], allowlist)
+
+    def test_19_date_normalization_formats(self):
+        """Test parse_date normalizes various formats to YYYY-MM-DD."""
+        self.assertEqual(parse_date("01/01/26"), "2026-01-01")
+        self.assertEqual(parse_date("01/01/2026"), "2026-01-01")
+        self.assertEqual(parse_date("01-01-26"), "2026-01-01")
+        self.assertEqual(parse_date("01-01-2026"), "2026-01-01")
+        self.assertEqual(parse_date("2026-01-01"), "2026-01-01")
+
+    def test_20_parse_date_blank_raises_error(self):
+        """Test parse_date raises ValueError for blank date values."""
+        with self.assertRaises(ValueError):
+            parse_date("")
+        with self.assertRaises(ValueError):
+            parse_date("   ")
+
+    def test_21_parse_date_unsupported_format(self):
+        """Test parse_date raises ValueError for unsupported formats with invalid raw date in error."""
+        with self.assertRaises(ValueError) as ctx:
+            parse_date("invalid-date-string")
+        self.assertIn("invalid-date-string", str(ctx.exception))
+
+    def test_22_row_to_historical_match_returns_iso_date(self):
+        """Test row_to_historical_match returns ISO-8601 date string."""
+        row = {
+            "Date": "18/12/22",
+            "HomeTeam": "Argentina",
+            "AwayTeam": "France",
+            "FTR": "D",
+            "B365H": "2.80",
+            "B365D": "3.00",
+            "B365A": "2.80",
+        }
+        match = row_to_historical_match(row)
+        self.assertIsNotNone(match)
+        self.assertEqual(match["date"], "2022-12-18")
+
+    def test_23_load_csv_file_date_error_row_number(self):
+        """Test load_csv_file includes the correct row number in invalid date errors."""
+        import io
+        csv_data = (
+            "Date,HomeTeam,AwayTeam,FTR,B365H,B365D,B365A\n"
+            "20/11/2022,Qatar,Ecuador,A,3.20,3.10,2.40\n"
+            "invalid_date,England,Iran,H,1.15,3.80,19.00\n"  # Invalid date on Row 3
+        )
+        file_obj = io.StringIO(csv_data)
+        with self.assertRaises(ValueError) as ctx:
+            load_csv_file(file_obj)
+        self.assertIn("Row 3", str(ctx.exception))
 
 
 if __name__ == "__main__":

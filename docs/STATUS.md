@@ -7,14 +7,14 @@
 
 ## Current stage
 
-Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, a baseline backtest dashboard comparing saved historical CSV import batches, a legally safe synthetic sample CSV quick-start demo flow, and public collaboration configuration (GitHub templates and contributor labels) are complete. Standard library parsing translates uploaded historical match and betting odds CSVs in-memory to baseline probabilities, calculates summary stats, and evaluates baseline backtests, offering the user an option to persist the structured matches to the local SQLite database.
+Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, a baseline backtest dashboard comparing saved historical CSV import batches, a legally safe synthetic sample CSV quick-start demo flow, public collaboration configuration, and the security disclosure reporting path are complete. Parsing of historical match and betting odds CSVs now normalizes match dates to ISO-8601 YYYY-MM-DD.
 
 ## GitHub connection status
 
 - **Status:** Connected to GitHub
 - **Repository URL:** [worldcup-prediction-tool](https://github.com/buildrr89/worldcup-prediction-tool)
 - **Visibility:** Public
-- **Latest public-release commit hash:** `4f9984d`
+- **Latest public-release commit hash:** `6d5187c`
 - **Branch:** `main`
 - **License:** MIT
 - **Public release:** Live
@@ -76,8 +76,8 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 - Public-repo readiness docs & templates — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
   `CODE_OF_CONDUCT.md`, `LICENSE_RECOMMENDATION.md`,
   `docs/PUBLIC_REPO_READINESS.md` (checklist), `.github/ISSUE_TEMPLATE/` (bug_report.yml, feature_request.yml, data_source_request.yml, research_note_parser.yml, config.yml), `.github/PULL_REQUEST_TEMPLATE.md`, and `.github/labels.yml`.
-- `src/importers/__init__.py` and `src/importers/football_data_csv.py` — Football-Data.co.uk CSV importer/backtesting foundation. Completed — parses historical results/odds from filesystem path or file-like/bytes objects, calculates de-vigged baseline probabilities, computes summary statistics (wins, margins), and performs baseline backtesting (Brier score and log loss).
-- `tests/test_football_data_csv.py` — 18 `unittest` tests for the CSV importer/backtester (result mapping, float parsing, match mapping, load CSV with error line numbers, load CSV file from String/Bytes streams, invalid row skipping, error row-attribution, summarisation, backtest calculations, alternative odds prefixes, and synthetic sample CSV compatibility). All passing.
+- `src/importers/__init__.py` and `src/importers/football_data_csv.py` — Football-Data.co.uk CSV importer/backtesting foundation. Completed — parses historical results/odds from filesystem path or file-like/bytes objects, calculates de-vigged baseline probabilities, normalizes dates to YYYY-MM-DD, computes summary statistics (wins, margins), and performs baseline backtesting (Brier score and log loss).
+- `tests/test_football_data_csv.py` — 23 `unittest` tests for the CSV importer/backtester (result mapping, float parsing, date normalization, match mapping, load CSV with error line numbers, load CSV file from String/Bytes streams, invalid row skipping, error row-attribution, summarisation, backtest calculations, alternative odds prefixes, and synthetic sample CSV compatibility). All passing.
 - `sample_data/football_data_sample.csv` — Completed. Legally safe, synthetic CSV containing 10 fictional match rows to test import/backtest flow.
 
 ## Current database status
@@ -95,7 +95,7 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 
 ## Next recommended task
 
-**Create first public good-first-issue backlog for sample data, importer UX, and documentation polish.**
+**Refactor app.py into small Streamlit UI modules without changing behaviour.**
 
 ## Validation commands
 
@@ -103,14 +103,14 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 python3 src/db.py                       # idempotent: re-creates missing tables and applies schema updates
 sqlite3 data/worldcup.db ".schema"      # confirm the tables and columns exist
 python3 -m compileall src app.py        # catch syntax errors
-python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py  # run all 71 tests
+python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py  # run all 92 tests
 streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-10, GitHub templates & labels session):**
+**Last run (2026-06-10, CSV Date Normalization & Security Disclosure update):**
 `python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py` →
-`Ran 87 tests in 0.232s` / `OK` (all 87 passing).
-`python3 -m compileall src app.py` → compiled successfully.
+`Ran 92 tests in 0.242s` / `OK` (all 92 passing).
+`python3 -m compileall src tests app.py` → compiled successfully.
 
 ## Known gaps
 

@@ -27,7 +27,7 @@ If the project later integrates any API, the keys must be stored in `.env`
   private information), do **not** put it in a public issue. Use the private
   contact below instead.
 
-> **Security contact: TODO before public release**
+> Security contact: Please use GitHub private vulnerability reporting if available. If it is not enabled, open a public issue only for non-sensitive security hardening suggestions and avoid posting exploit details, secrets, private data, or local database contents.
 
 ## Scrub before you post
 
