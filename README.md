@@ -50,6 +50,13 @@ python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scorin
 streamlit run app.py
 ```
 
+### Historical CSV Preview Usage
+1. Launch the app using `streamlit run app.py`
+2. Scroll to the **Historical CSV backtest preview** section.
+3. Upload a Football-Data.co.uk-style `.csv` file.
+4. Select or enter the odds prefix (e.g. `B365` or `PS`).
+5. View the de-vigged baseline backtest metrics, summary statistics, and first 10 matches preview in-memory (no database writes will occur yet).
+
 ## Current status
 
 The core math layers (odds de-vig, deterministic predictor/blending, scoring) are built and tested. A Streamlit shell on top lets you:

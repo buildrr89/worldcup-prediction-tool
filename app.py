@@ -436,7 +436,9 @@ if uploaded_file is not None:
                     "home_decimal_odds": f"{m['home_decimal_odds']:.2f}",
                     "draw_decimal_odds": f"{m['draw_decimal_odds']:.2f}",
                     "away_decimal_odds": f"{m['away_decimal_odds']:.2f}",
-                    "baseline home/draw/away probabilities": f"{_pct(m['baseline']['home'])} / {_pct(m['baseline']['draw'])} / {_pct(m['baseline']['away'])}",
+                    "baseline_home": _pct(m["baseline"]["home"]),
+                    "baseline_draw": _pct(m["baseline"]["draw"]),
+                    "baseline_away": _pct(m["baseline"]["away"]),
                     "margin": _pct(m["margin"])
                 })
             st.table(preview_rows)

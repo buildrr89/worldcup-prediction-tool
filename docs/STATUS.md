@@ -106,10 +106,10 @@ python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scorin
 streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-10, Historical CSV preview section session):**
+**Last run (2026-06-10, Historical CSV preview column splitting session):**
 `python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py` →
-`Ran 70 tests in 0.121s` / `OK` (all 70 passing — 5 odds + 15 predictor + 12 scoring + 21 db + 17 importer).
-`python3 -m compileall src app.py` → compiled, no errors.
+`Ran 70 tests in 0.116s` / `OK` (all 70 passing).
+`python3 -m compileall src app.py` → compiled successfully.
 
 ## Known gaps
 
