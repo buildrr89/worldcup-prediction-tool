@@ -1,0 +1,59 @@
+name: Feature Request
+description: Propose a general feature idea.
+labels: ["type: enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please propose features that respect our local-first, privacy-respecting, and deterministic architecture.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem or limitation are you trying to address?
+      placeholder: Describe the problem...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What is your proposed solution?
+      placeholder: Describe the solution...
+    validations:
+      required: true
+  - type: textarea
+    id: local_first_fit
+    attributes:
+      label: Why this fits local-first scope
+      description: Explain how this feature respects the offline, personal, local-first design (no cloud, no auth, no SaaS).
+      placeholder: E.g., This operates entirely on the local SQLite database and requires no external API keys...
+    validations:
+      required: true
+  - type: textarea
+    id: what_not_to_build
+    attributes:
+      label: What should not be built
+      description: What aspects of this idea are out of scope (e.g. cloud hosting, automated placing of bets)?
+      placeholder: E.g., We should not add automatic betting placement or any remote database hosting...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What alternative approaches did you consider?
+      placeholder: Describe alternatives...
+    validations:
+      required: false
+  - type: dropdown
+    id: willingness
+    attributes:
+      label: Contributor willingness
+      description: Would you be willing to submit a pull request to implement this feature?
+      options:
+        - "No, I am just requesting the feature"
+        - "Yes, I can implement this with some guidance"
+        - "Yes, I am ready to implement this immediately"
+    validations:
+      required: true

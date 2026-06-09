@@ -95,9 +95,11 @@ Also useful: [docs/BUILD_RULES.md](docs/BUILD_RULES.md),
 
 ## Contributing
 
-Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md)
-first. It explains the local-first scope, the "one focused change at a time"
-rule, and the checklist to run before opening a PR.
+Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) first. It explains the local-first scope, the "one focused change at a time" rule, and the checklist to run before opening a PR.
+
+For public collaboration, we also provide:
+- Structured [GitHub Issue Templates](.github/ISSUE_TEMPLATE/) for bugs, features, data sources, and parser ideas.
+- A standard [Pull Request Template](.github/PULL_REQUEST_TEMPLATE.md) with our local-first checklist.
 
 ## Security
 

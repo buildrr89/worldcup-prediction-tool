@@ -35,6 +35,15 @@ These are hard boundaries — please do not cross them:
   produce the same output for the same input. AI may structure research notes,
   but it must never compute or invent the final probabilities.
 
+## Issues and labels
+
+We use GitHub Issues and labels to structure public collaboration:
+- **Use issue templates**: Please select the appropriate issue template (Bug Report, Feature Request, Data Source Request, or Research Note Parser Idea) when opening an issue.
+- **Use labels to categorize tasks**: Labels help classify issues by type, area, and status (e.g., `type: bug`, `area: db`, `status: ready`).
+- **Data-source suggestions**: Any suggestions for new data sources must include licensing/terms notes. They must not require automated scraping of protected sites.
+- **AI-note parser ideas**: Proposals for AI-assisted research note parsing must preserve a human-review step before any data is saved to the local database.
+- **Privacy and security**: Contributors must not post secrets, API keys, private notes, local database files (`data/worldcup.db`), or paid/scraped data in issues, PRs, or discussions.
+
 ## Run the tests before submitting
 
 ```bash

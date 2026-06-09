@@ -1,0 +1,83 @@
+name: Bug Report
+description: File a reproducible bug report.
+labels: ["type: bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please ensure you have read our contributing guidelines and security policy before posting.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the issue...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: What system are you running on?
+      placeholder: |
+        OS: macOS / Linux / Windows
+        Python version: e.g. 3.10.5
+        Streamlit version: e.g. 1.25.0 (if relevant)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How did you encounter the issue?
+      placeholder: |
+        1. Run `streamlit run app.py`
+        2. Click on ...
+        3. See error...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What did you expect to happen?
+      placeholder: The prediction should be saved...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened?
+      placeholder: Traceback or error message...
+    validations:
+      required: true
+  - type: textarea
+    id: validation_commands
+    attributes:
+      label: Validation commands run
+      description: What validation or tests did you run?
+      placeholder: |
+        python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py
+        python3 -m compileall src app.py
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots/logs
+      description: Paste any screenshots, terminal output, or logs here. WARNING: Make sure to remove any secrets, API keys, private notes, or personal data.
+      placeholder: Paste here...
+    validations:
+      required: false
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: I checked existing issues.
+          required: true
+        - label: I am not posting secrets, API keys, local database files, or private notes.
+          required: true
+        - label: I understand that this tool is for personal research only and is not betting or financial advice.
+          required: true

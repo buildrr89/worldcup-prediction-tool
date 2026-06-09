@@ -7,7 +7,7 @@
 
 ## Current stage
 
-Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, a baseline backtest dashboard comparing saved historical CSV import batches, and a legally safe synthetic sample CSV quick-start demo flow are complete. Standard library parsing translates uploaded historical match and betting odds CSVs in-memory to baseline probabilities, calculates summary stats, and evaluates baseline backtests, offering the user an option to persist the structured matches to the local SQLite database.
+Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, a baseline backtest dashboard comparing saved historical CSV import batches, a legally safe synthetic sample CSV quick-start demo flow, and public collaboration configuration (GitHub templates and contributor labels) are complete. Standard library parsing translates uploaded historical match and betting odds CSVs in-memory to baseline probabilities, calculates summary stats, and evaluates baseline backtests, offering the user an option to persist the structured matches to the local SQLite database.
 
 ## GitHub connection status
 
@@ -73,9 +73,9 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 - `app.py` — Streamlit shell. Completed. Supports manual match prediction, post-match prediction scoring, historical CSV preview and backtesting, persisting approved historical CSV imports to SQLite with automatic batch listing, a baseline backtest dashboard comparing saved import batches, and a Quick-start demo section for downloading the synthetic sample CSV.
 - `requirements.txt` — Completed. Single dependency: `streamlit`. (Standard
   library covers everything else.)
-- Public-repo readiness docs — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
-  `CODE_OF_CONDUCT.md`, `LICENSE_RECOMMENDATION.md` (MIT recommended, decision pending), and
-  `docs/PUBLIC_REPO_READINESS.md` (checklist).
+- Public-repo readiness docs & templates — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, `LICENSE_RECOMMENDATION.md`,
+  `docs/PUBLIC_REPO_READINESS.md` (checklist), `.github/ISSUE_TEMPLATE/` (bug_report.yml, feature_request.yml, data_source_request.yml, research_note_parser.yml, config.yml), `.github/PULL_REQUEST_TEMPLATE.md`, and `.github/labels.yml`.
 - `src/importers/__init__.py` and `src/importers/football_data_csv.py` — Football-Data.co.uk CSV importer/backtesting foundation. Completed — parses historical results/odds from filesystem path or file-like/bytes objects, calculates de-vigged baseline probabilities, computes summary statistics (wins, margins), and performs baseline backtesting (Brier score and log loss).
 - `tests/test_football_data_csv.py` — 18 `unittest` tests for the CSV importer/backtester (result mapping, float parsing, match mapping, load CSV with error line numbers, load CSV file from String/Bytes streams, invalid row skipping, error row-attribution, summarisation, backtest calculations, alternative odds prefixes, and synthetic sample CSV compatibility). All passing.
 - `sample_data/football_data_sample.csv` — Completed. Legally safe, synthetic CSV containing 10 fictional match rows to test import/backtest flow.
@@ -95,7 +95,7 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 
 ## Next recommended task
 
-**Add GitHub issue templates and contributor task labels for public collaboration.**
+**Create first public good-first-issue backlog for sample data, importer UX, and documentation polish.**
 
 ## Validation commands
 
@@ -107,9 +107,9 @@ python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scorin
 streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-10, Sample CSV demo flow session):**
+**Last run (2026-06-10, GitHub templates & labels session):**
 `python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py` →
-`Ran 87 tests in 0.254s` / `OK` (all 87 passing).
+`Ran 87 tests in 0.232s` / `OK` (all 87 passing).
 `python3 -m compileall src app.py` → compiled successfully.
 
 ## Known gaps

@@ -1,0 +1,65 @@
+name: Research Note Parser Idea
+description: Propose an idea or example for the future AI-assisted research note parser.
+labels: ["type: ai-research", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please propose patterns for parsing raw unstructured text (research notes) into structured, directional research factors.
+  - type: textarea
+    id: note_example
+    attributes:
+      label: Research note example
+      description: Provide an example of raw text notes a researcher would write.
+      placeholder: E.g., "France is missing Mbappe due to a broken nose, which will hurt their attack. But Austria has a weak defense and had to travel 6 hours yesterday."
+    validations:
+      required: true
+  - type: textarea
+    id: structured_output
+    attributes:
+      label: Desired structured output
+      description: What are the structured factors that should be extracted from the example above?
+      placeholder: |
+        - Factor 1: Team = France, Type = injury, Direction = negative, Magnitude = 0.15, Weight = 1.0, Note = "Mbappe broken nose"
+        - Factor 2: Team = Austria, Type = travel/rest, Direction = negative, Magnitude = 0.05, Weight = 0.5, Note = "6 hour travel"
+    validations:
+      required: true
+  - type: checkboxes
+    id: factor_targets
+    attributes:
+      label: Factor target
+      options:
+        - label: home
+        - label: draw
+        - label: away
+    validations:
+      required: true
+  - type: checkboxes
+    id: factor_types
+    attributes:
+      label: Factor type
+      options:
+        - label: injury
+        - label: tactics
+        - label: lineup
+        - label: travel/rest
+        - label: motivation
+        - label: market
+        - label: other
+    validations:
+      required: true
+  - type: textarea
+    id: review_considerations
+    attributes:
+      label: Review/safety considerations
+      description: How will the user review these factors before they are committed to the local database?
+      placeholder: Describe the review step...
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: I understand and agree that any AI-generated factors must be explicitly reviewed and approved by the human user before saving to the database.
+          required: true

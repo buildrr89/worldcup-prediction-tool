@@ -1,0 +1,91 @@
+name: Data Source Request
+description: Suggest a new football data source, API, or dataset.
+labels: ["type: data-source", "needs triage", "risk: licensing-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please verify that the proposed data source does not violate scraping terms, copyright, or require expensive subscription keys.
+  - type: input
+    id: source_name
+    attributes:
+      label: Data source name
+      placeholder: E.g., Football-Data.co.uk
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Link
+      placeholder: E.g., https://www.football-data.co.uk/
+    validations:
+      required: true
+  - type: checkboxes
+    id: data_type
+    attributes:
+      label: Data type
+      options:
+        - label: fixtures
+        - label: odds
+        - label: results
+        - label: standings
+        - label: lineups
+        - label: injuries
+        - label: predictions
+        - label: other
+    validations:
+      required: true
+  - type: textarea
+    id: license_notes
+    attributes:
+      label: License/terms notes
+      description: What are the terms of service, copyright, and licensing restrictions?
+      placeholder: E.g., Free for personal, non-commercial research use. No automated scraping required (data is downloadable via direct CSV links)...
+    validations:
+      required: true
+  - type: dropdown
+    id: cost
+    attributes:
+      label: Is it free/paid?
+      options:
+        - "Free / Open Data"
+        - "Freemium (free tier available)"
+        - "Paid / Subscription required"
+    validations:
+      required: true
+  - type: dropdown
+    id: api_key
+    attributes:
+      label: Does it require API key?
+      options:
+        - "No API key required (direct file download, etc.)"
+        - "Yes, free API key"
+        - "Yes, paid API key"
+    validations:
+      required: true
+  - type: dropdown
+    id: scraping_prohibited
+    attributes:
+      label: Does it prohibit scraping?
+      options:
+        - "No scraping is needed / Direct download available"
+        - "Yes, terms of service explicitly prohibit scraping"
+        - "No explicit mention"
+    validations:
+      required: true
+  - type: textarea
+    id: signal_usage
+    attributes:
+      label: How it would be used as a signal, not final answer
+      description: Explain how the tool would parse this data as a baseline or nudge, rather than letting an external model dictate predictions.
+      placeholder: E.g., This would be parsed into the SQLite database as historical results/odds to run backtests, or as injury factors...
+    validations:
+      required: true
+  - type: textarea
+    id: risk_notes
+    attributes:
+      label: Risk notes
+      description: Any concerns regarding data quality, stability of the resource, licensing issues, or privacy?
+      placeholder: E.g., The site layout could change, or it might require an internet connection if retrieved dynamically...
+    validations:
+      required: false

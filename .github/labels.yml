@@ -1,0 +1,75 @@
+- name: "type: bug"
+  color: "d73a4a"
+  description: "Something isn't working or code is failing"
+
+- name: "type: enhancement"
+  color: "a2eeef"
+  description: "New features or improvements to existing features"
+
+- name: "type: documentation"
+  color: "0075ca"
+  description: "Improvements or additions to documentation files"
+
+- name: "type: data-source"
+  color: "1d76db"
+  description: "Requests/discussions regarding new datasets or CSV/API sources"
+
+- name: "type: ai-research"
+  color: "d4c5f9"
+  description: "AI-assisted research note parsing concepts and feedback"
+
+- name: "area: app"
+  color: "c5def5"
+  description: "Streamlit application frontend UI and control logic"
+
+- name: "area: db"
+  color: "bfd4f2"
+  description: "SQLite schema, migrations, or database queries"
+
+- name: "area: importer"
+  color: "bfdadc"
+  description: "CSV/JSON parsed data importer modules"
+
+- name: "area: scoring"
+  color: "fad8c7"
+  description: "Brier score, log loss, or prediction evaluation metrics"
+
+- name: "area: docs"
+  color: "e99695"
+  description: "Status, decisions, instructions, or briefs in docs/"
+
+- name: "area: github"
+  color: "fef2c0"
+  description: "GitHub templates, workflows, or project config files"
+
+- name: "good first issue"
+  color: "7057ff"
+  description: "Good for newcomers to get started with the codebase"
+
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention or specialized knowledge is needed"
+
+- name: "needs triage"
+  color: "fbca04"
+  description: "New issue requiring classification or verification by maintainer"
+
+- name: "needs tests"
+  color: "d93f0b"
+  description: "Feature or fix requires corresponding unit/integration tests"
+
+- name: "risk: licensing-review"
+  color: "e6e6e6"
+  description: "Data source or code that requires careful license verification"
+
+- name: "risk: privacy"
+  color: "e11d21"
+  description: "Security concern regarding leak of secrets or user files"
+
+- name: "status: blocked"
+  color: "b60205"
+  description: "Cannot proceed due to external blocker or prior task dependency"
+
+- name: "status: ready"
+  color: "0e8a16"
+  description: "Triaged and ready for implementation/PR submission"
