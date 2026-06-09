@@ -57,6 +57,7 @@ streamlit run app.py
 4. Select or enter the odds prefix (e.g. `B365` or `PS`).
 5. View the de-vigged baseline backtest metrics, summary statistics, and first 10 matches preview in-memory (no database writes will occur yet).
 6. After previewing a historical CSV import, you can explicitly save the parsed records to the local SQLite database; raw uploaded files are not persisted.
+7. After saving historical CSV imports, the app can compare import batches by bookmaker margin, Brier score, log loss, and result distribution.
 
 ## Current status
 

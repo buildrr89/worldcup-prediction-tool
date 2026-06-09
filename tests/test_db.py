@@ -580,5 +580,146 @@ class TestHistoricalImportPersistence(DBTestCase):
             conn.close()
 
 
+class TestHistoricalBatchDashboardHelpers(DBTestCase):
+    def setUp(self):
+        super().setUp()
+        self.match_home_win = {
+            "date": "10/06/2026",
+            "home_team": "Argentina",
+            "away_team": "France",
+            "actual_result": "home",
+            "home_decimal_odds": 2.0,
+            "draw_decimal_odds": 3.0,
+            "away_decimal_odds": 4.0,
+            "baseline": {"home": 0.50, "draw": 0.30, "away": 0.20},
+            "margin": 0.083,
+            "source": "football-data.co.uk",
+            "odds_prefix": "B365",
+        }
+        self.match_draw = {
+            "date": "11/06/2026",
+            "home_team": "Brazil",
+            "away_team": "Germany",
+            "actual_result": "draw",
+            "home_decimal_odds": 2.0,
+            "draw_decimal_odds": 3.0,
+            "away_decimal_odds": 4.0,
+            "baseline": {"home": 0.50, "draw": 0.30, "away": 0.20},
+            "margin": 0.083,
+            "source": "football-data.co.uk",
+            "odds_prefix": "B365",
+        }
+        self.match_away_win = {
+            "date": "12/06/2026",
+            "home_team": "Italy",
+            "away_team": "Spain",
+            "actual_result": "away",
+            "home_decimal_odds": 2.0,
+            "draw_decimal_odds": 3.0,
+            "away_decimal_odds": 4.0,
+            "baseline": {"home": 0.50, "draw": 0.30, "away": 0.20},
+            "margin": 0.083,
+            "source": "football-data.co.uk",
+            "odds_prefix": "B365",
+        }
+
+    def test_get_historical_batch_summary_returns_distribution(self):
+        """get_historical_batch_summary returns correct metrics and result distribution."""
+        res = db.save_historical_import([self.match_home_win, self.match_draw, self.match_away_win], "B365", "test1.csv")
+        batch_id = res["batch_id"]
+
+        summary = db.get_historical_batch_summary(batch_id)
+        self.assertEqual(summary["id"], batch_id)
+        self.assertEqual(summary["file_name"], "test1.csv")
+        self.assertEqual(summary["match_count"], 3)
+        self.assertEqual(summary["home_wins"], 1)
+        self.assertEqual(summary["draws"], 1)
+        self.assertEqual(summary["away_wins"], 1)
+        self.assertAlmostEqual(summary["average_margin"], 0.083)
+
+    def test_list_historical_batch_summaries_newest_first(self):
+        """list_historical_batch_summaries returns newest batches first."""
+        res1 = db.save_historical_import([self.match_home_win], "B365", "test1.csv")
+        res2 = db.save_historical_import([self.match_draw], "B365", "test2.csv")
+
+        summaries = db.list_historical_batch_summaries()
+        self.assertEqual(len(summaries), 2)
+        self.assertEqual(summaries[0]["id"], res2["batch_id"])
+        self.assertEqual(summaries[1]["id"], res1["batch_id"])
+
+    def test_compare_historical_batches_best_selection(self):
+        """compare_historical_batches identifies best average Brier, log loss, and margin batches."""
+        match1 = self.match_home_win.copy()
+        match1["margin"] = 0.05
+        match1["baseline"] = {"home": 0.9, "draw": 0.05, "away": 0.05}
+
+        match2 = self.match_home_win.copy()
+        match2["margin"] = 0.10
+        match2["baseline"] = {"home": 0.1, "draw": 0.45, "away": 0.45}
+
+        res1 = db.save_historical_import([match1], "B365", "best_scores.csv")
+        res2 = db.save_historical_import([match2], "B365", "worse_scores.csv")
+
+        comparison = db.compare_historical_batches([res1["batch_id"], res2["batch_id"]])
+        self.assertEqual(comparison["batch_count"], 2)
+        self.assertEqual(comparison["best_brier_batch"]["id"], res1["batch_id"])
+        self.assertEqual(comparison["best_log_loss_batch"]["id"], res1["batch_id"])
+        self.assertEqual(comparison["lowest_margin_batch"]["id"], res1["batch_id"])
+
+    def test_compare_historical_batches_fallback(self):
+        """compare_historical_batches([]) and None fall back to recent batches."""
+        res1 = db.save_historical_import([self.match_home_win], "B365", "test1.csv")
+
+        comp_empty_list = db.compare_historical_batches([])
+        comp_none = db.compare_historical_batches(None)
+
+        self.assertEqual(comp_empty_list["batch_count"], 1)
+        self.assertEqual(comp_empty_list["batches"][0]["id"], res1["batch_id"])
+        self.assertEqual(comp_none["batch_count"], 1)
+        self.assertEqual(comp_none["batches"][0]["id"], res1["batch_id"])
+
+    def test_compare_historical_batches_empty_db(self):
+        """compare_historical_batches returns empty summary when no batches exist."""
+        comp = db.compare_historical_batches()
+        self.assertEqual(comp["batch_count"], 0)
+        self.assertEqual(comp["batches"], [])
+        self.assertIsNone(comp["best_brier_batch"])
+        self.assertIsNone(comp["best_log_loss_batch"])
+        self.assertIsNone(comp["lowest_margin_batch"])
+
+    def test_invalid_batch_id_raises(self):
+        """Invalid batch ids raise ValueError in helpers."""
+        with self.assertRaises(ValueError):
+            db.get_historical_batch_summary(0)
+        with self.assertRaises(ValueError):
+            db.get_historical_batch_summary(-5)
+        with self.assertRaises(ValueError):
+            db.get_historical_batch_summary("abc")
+        with self.assertRaises(ValueError):
+            db.get_historical_batch_summary(True)
+        with self.assertRaises(ValueError):
+            db.get_historical_batch_summary(9999)
+
+        with self.assertRaises(ValueError):
+            db.compare_historical_batches([0])
+        with self.assertRaises(ValueError):
+            db.compare_historical_batches([-1])
+        with self.assertRaises(ValueError):
+            db.compare_historical_batches(["abc"])
+        with self.assertRaises(ValueError):
+            db.compare_historical_batches([9999])
+
+    def test_invalid_limit_raises(self):
+        """Invalid limit raises ValueError in list_historical_batch_summaries."""
+        with self.assertRaises(ValueError):
+            db.list_historical_batch_summaries(0)
+        with self.assertRaises(ValueError):
+            db.list_historical_batch_summaries(-10)
+        with self.assertRaises(ValueError):
+            db.list_historical_batch_summaries("abc")
+        with self.assertRaises(ValueError):
+            db.list_historical_batch_summaries(True)
+
+
 if __name__ == "__main__":
     unittest.main()

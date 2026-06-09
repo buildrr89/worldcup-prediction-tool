@@ -7,7 +7,7 @@
 
 ## Current stage
 
-Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, and DB persistence for selected historical CSV imports after preview approval are complete. Standard library parsing translates uploaded historical match and betting odds CSVs in-memory to baseline probabilities, calculates summary stats, and evaluates baseline backtests, offering the user an option to persist the structured matches to the local SQLite database.
+Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, and a baseline backtest dashboard comparing saved historical CSV import batches are complete. Standard library parsing translates uploaded historical match and betting odds CSVs in-memory to baseline probabilities, calculates summary stats, and evaluates baseline backtests, offering the user an option to persist the structured matches to the local SQLite database.
 
 ## GitHub connection status
 
@@ -31,8 +31,9 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
   `get_prediction_for_scoring`, `score_prediction`,
   `list_unscored_predictions`, `list_scored_predictions`,
   `create_historical_import_batch`, `create_historical_match`,
-  `save_historical_import`, `list_historical_import_batches`, and `list_historical_matches`.
-- `tests/test_db.py` — 30 `unittest` tests for the persistence, migration, and historical CSV import layers, each
+  `save_historical_import`, `list_historical_import_batches`, `list_historical_matches`,
+  `get_historical_batch_summary`, `list_historical_batch_summaries`, and `compare_historical_batches`.
+- `tests/test_db.py` — 37 `unittest` tests for the persistence, migration, historical CSV import, and batch comparison layers, each
   against a `tempfile.TemporaryDirectory` DB. All passing.
 - `src/odds.py` — odds de-vig math layer (pure function
   `decimal_odds_to_implied_probabilities`). Completed — converts 1X2
@@ -69,7 +70,7 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
   result, perfect Brier = 0.0, worse-vs-better Brier ordering, good-vs-bad log
   loss ordering, invalid epsilon, comparison key set, and improvement/no-
   improvement marking). All passing.
-- `app.py` — Streamlit shell. Completed. Supports manual match prediction, post-match prediction scoring, historical CSV preview and backtesting, and persisting approved historical CSV imports to SQLite with automatic batch listing.
+- `app.py` — Streamlit shell. Completed. Supports manual match prediction, post-match prediction scoring, historical CSV preview and backtesting, persisting approved historical CSV imports to SQLite with automatic batch listing, and a baseline backtest dashboard comparing saved import batches.
 - `requirements.txt` — Completed. Single dependency: `streamlit`. (Standard
   library covers everything else.)
 - Public-repo readiness docs — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
@@ -93,7 +94,7 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 
 ## Next recommended task
 
-**Add baseline backtest dashboard comparing saved historical import batches.**
+**Add one-click sample CSV fixture and quick-start demo flow for contributors.**
 
 ## Validation commands
 
@@ -105,9 +106,9 @@ python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scorin
 streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-10, Persist historical CSV imports session):**
+**Last run (2026-06-10, Historical backtest dashboard session):**
 `python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py` →
-`Ran 79 tests in 0.191s` / `OK` (all 79 passing).
+`Ran 86 tests in 0.245s` / `OK` (all 86 passing).
 `python3 -m compileall src app.py` → compiled successfully.
 
 ## Known gaps

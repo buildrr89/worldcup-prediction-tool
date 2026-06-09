@@ -874,6 +874,165 @@ def list_historical_matches(batch_id: int, limit: int = 20) -> list[dict]:
         conn.close()
 
 
+def get_historical_batch_summary(batch_id: int) -> dict:
+    """Return one batch summary by ID, including result distribution.
+
+    Raises ValueError if batch_id is invalid (not positive integer) or not found.
+    """
+    if isinstance(batch_id, bool) or not isinstance(batch_id, int):
+        raise ValueError(f"batch_id must be an integer, got {batch_id!r}")
+    if batch_id <= 0:
+        raise ValueError(f"batch_id must be positive, got {batch_id!r}")
+
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT id, source, odds_prefix, file_name, match_count, average_margin, average_brier, average_log_loss, created_at
+            FROM historical_import_batches
+            WHERE id = ?
+            """,
+            (batch_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"Batch #{batch_id} not found")
+
+        counts = conn.execute(
+            """
+            SELECT
+                COALESCE(SUM(CASE WHEN actual_result = 'home' THEN 1 ELSE 0 END), 0) as home_wins,
+                COALESCE(SUM(CASE WHEN actual_result = 'draw' THEN 1 ELSE 0 END), 0) as draws,
+                COALESCE(SUM(CASE WHEN actual_result = 'away' THEN 1 ELSE 0 END), 0) as away_wins
+            FROM historical_matches
+            WHERE batch_id = ?
+            """,
+            (batch_id,),
+        ).fetchone()
+
+        res = dict(row)
+        res["home_wins"] = counts["home_wins"]
+        res["draws"] = counts["draws"]
+        res["away_wins"] = counts["away_wins"]
+        return res
+    finally:
+        conn.close()
+
+
+def list_historical_batch_summaries(limit: int = 20) -> list[dict]:
+    """Return recent batch summaries, newest first, with result distribution.
+
+    Raises ValueError if limit is not a positive integer.
+    """
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise ValueError(f"limit must be an integer, got {limit!r}")
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit!r}")
+
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT 
+                b.id, b.source, b.odds_prefix, b.file_name, b.match_count, b.average_margin, b.average_brier, b.average_log_loss, b.created_at,
+                COALESCE(SUM(CASE WHEN m.actual_result = 'home' THEN 1 ELSE 0 END), 0) as home_wins,
+                COALESCE(SUM(CASE WHEN m.actual_result = 'draw' THEN 1 ELSE 0 END), 0) as draws,
+                COALESCE(SUM(CASE WHEN m.actual_result = 'away' THEN 1 ELSE 0 END), 0) as away_wins
+            FROM historical_import_batches b
+            LEFT JOIN historical_matches m ON b.id = m.batch_id
+            GROUP BY b.id
+            ORDER BY b.id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def compare_historical_batches(batch_ids: list[int] | None = None) -> dict:
+    """Compare saved historical CSV import batches.
+
+    If batch_ids is None or empty, compare recent batches, limit 20.
+    If provided, compare those batch IDs only.
+    Raises ValueError on invalid batch id or if a batch ID doesn't exist.
+    """
+    if batch_ids is not None:
+        if not isinstance(batch_ids, list):
+            raise ValueError(f"batch_ids must be a list or None, got {batch_ids!r}")
+        for b_id in batch_ids:
+            if isinstance(b_id, bool) or not isinstance(b_id, int):
+                raise ValueError(f"batch_id must be an integer, got {b_id!r}")
+            if b_id <= 0:
+                raise ValueError(f"batch_id must be positive, got {b_id!r}")
+
+    if batch_ids:
+        # Check if every batch_id exists. If not, raise ValueError.
+        conn = get_connection()
+        try:
+            for b_id in batch_ids:
+                exists = conn.execute(
+                    "SELECT 1 FROM historical_import_batches WHERE id = ?", (b_id,)
+                ).fetchone()
+                if not exists:
+                    raise ValueError(f"Batch #{b_id} not found")
+        finally:
+            conn.close()
+
+        # Fetch summaries for specified batch_ids
+        conn = get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            placeholders = ",".join("?" for _ in batch_ids)
+            rows = conn.execute(
+                f"""
+                SELECT 
+                    b.id, b.source, b.odds_prefix, b.file_name, b.match_count, b.average_margin, b.average_brier, b.average_log_loss, b.created_at,
+                    COALESCE(SUM(CASE WHEN m.actual_result = 'home' THEN 1 ELSE 0 END), 0) as home_wins,
+                    COALESCE(SUM(CASE WHEN m.actual_result = 'draw' THEN 1 ELSE 0 END), 0) as draws,
+                    COALESCE(SUM(CASE WHEN m.actual_result = 'away' THEN 1 ELSE 0 END), 0) as away_wins
+                FROM historical_import_batches b
+                LEFT JOIN historical_matches m ON b.id = m.batch_id
+                WHERE b.id IN ({placeholders})
+                GROUP BY b.id
+                ORDER BY b.id DESC
+                """,
+                batch_ids,
+            ).fetchall()
+            batches = [dict(row) for row in rows]
+        finally:
+            conn.close()
+    else:
+        # Default to recent 20 batches
+        batches = list_historical_batch_summaries(20)
+
+    if not batches:
+        return {
+            "batch_count": 0,
+            "batches": [],
+            "best_brier_batch": None,
+            "best_log_loss_batch": None,
+            "lowest_margin_batch": None,
+        }
+
+    best_brier_batch = min(batches, key=lambda x: x["average_brier"])
+    best_log_loss_batch = min(batches, key=lambda x: x["average_log_loss"])
+    lowest_margin_batch = min(batches, key=lambda x: x["average_margin"])
+
+    return {
+        "batch_count": len(batches),
+        "batches": batches,
+        "best_brier_batch": best_brier_batch,
+        "best_log_loss_batch": best_log_loss_batch,
+        "lowest_margin_batch": lowest_margin_batch,
+    }
+
+
+
+
+
 if __name__ == "__main__":
     init_db()
     print(f"Initialized database at {DB_PATH}")
