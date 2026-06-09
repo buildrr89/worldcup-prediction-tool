@@ -7,14 +7,14 @@
 
 ## Current stage
 
-Core math layer, manual SQLite persistence, and post-match prediction scoring/persistence are complete. Wires a Streamlit UI allowing the user to view recent saved predictions, record actual match result outcomes (`home`/`draw`/`away`), score predictions against the bookmaker baseline using Brier score and log loss, and view scored prediction history. Idempotent schema migrations add nullable scoring columns to the `predictions` table.
+Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, and Football-Data.co.uk CSV importing foundation are complete. Standard library parsing translates historical match and betting odds CSVs into baseline probabilities, calculates summary statistics, and performs baseline backtesting evaluation (Brier score and Log Loss). The app includes a SQLite DB with schema, de-vig and blending math, persistence validation, and post-match scoring logic.
 
 ## GitHub connection status
 
 - **Status:** Connected to GitHub
 - **Repository URL:** [worldcup-prediction-tool](https://github.com/buildrr89/worldcup-prediction-tool)
 - **Visibility:** Private
-- **Latest pushed commit:** `85084ac` ("Initial local-first World Cup prediction tool")
+- **Latest pushed commit:** `b7edb58` ("Add Football-Data CSV importer")
 - **Branch:** `main`
 - **Public release:** Pending (license not chosen yet)
 
@@ -77,6 +77,8 @@ Core math layer, manual SQLite persistence, and post-match prediction scoring/pe
 - Public-repo readiness docs — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
   `CODE_OF_CONDUCT.md`, `LICENSE_RECOMMENDATION.md` (MIT recommended, decision pending), and
   `docs/PUBLIC_REPO_READINESS.md` (checklist).
+- `src/importers/__init__.py` and `src/importers/football_data_csv.py` — Football-Data.co.uk CSV importer/backtesting foundation. Completed — parses historical results/odds, calculates de-vigged baseline probabilities, computes summary statistics (wins, margins), and performs baseline backtesting (Brier score and log loss).
+- `tests/test_football_data_csv.py` — 12 `unittest` tests for the CSV importer/backtester (result mapping, float parsing, match mapping, load CSV with error line numbers, summarisation, backtest calculations, and alternative odds prefixes). All passing.
 
 ## Current database status
 
@@ -91,7 +93,7 @@ Core math layer, manual SQLite persistence, and post-match prediction scoring/pe
 
 ## Next recommended task
 
-**Add Football-Data.co.uk CSV import for historical results and odds backtesting.**
+**Add a Streamlit historical CSV upload/import page that previews summary and baseline backtest results without writing to DB yet.**
 
 ## Validation commands
 
@@ -99,14 +101,13 @@ Core math layer, manual SQLite persistence, and post-match prediction scoring/pe
 python3 src/db.py                       # idempotent: re-creates missing tables and applies schema updates
 sqlite3 data/worldcup.db ".schema"      # confirm the tables and columns exist
 python3 -m compileall src app.py        # catch syntax errors
-python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py  # run all 53 tests
+python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py  # run all 65 tests
 streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-10, Result entry + scoring persistence session):**
-`python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py` →
-`Ran 53 tests in 0.120s` / `OK` (all 53 passing — 5 odds + 15 predictor +
-12 scoring + 21 db).
+**Last run (2026-06-10, CSV Importer foundation session):**
+`python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py` →
+`Ran 65 tests in 0.118s` / `OK` (all 65 passing — 5 odds + 15 predictor + 12 scoring + 21 db + 12 importer).
 `python3 -m compileall src app.py` → compiled, no errors.
 
 ## Known gaps
