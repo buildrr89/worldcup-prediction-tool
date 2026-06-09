@@ -14,7 +14,7 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 - **Status:** Connected to GitHub
 - **Repository URL:** [worldcup-prediction-tool](https://github.com/buildrr89/worldcup-prediction-tool)
 - **Visibility:** Public
-- **Latest public-release commit hash:** `95b541a`
+- **Latest public-release commit hash:** `23a4c41`
 - **Branch:** `main`
 - **License:** MIT
 - **Public release:** Live
