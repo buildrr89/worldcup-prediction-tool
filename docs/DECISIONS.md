@@ -18,4 +18,5 @@ structural choice. Do not rewrite history — supersede with a new row instead.
 | 2026-06-10 | Connect project to GitHub for version control and future contributor readiness. | Reduce manual handoff labour and allow future developers/agents to continue from the same source of truth. | Accepted |
 | 2026-06-10 | Use Football-Data.co.uk CSVs as the first historical/backtesting data source. | They provide free computer-ready football results and betting odds CSV/Excel data suitable for quantitative analysis without scraping. | Accepted |
 | 2026-06-10 | License project under MIT. | MIT is permissive, simple, widely understood, and supports broad developer reuse/contribution. | Accepted |
+| 2026-06-10 | Persist parsed historical CSV records, not raw uploaded CSV files. | Keeps local storage lean, avoids storing unnecessary uploaded source files, and preserves only structured match/odds/backtest-ready records. | Accepted |
 | 2026-06-10 | Make GitHub repository public. | Allow other developers to inspect, fork, build on, and contribute to the project. | Accepted |

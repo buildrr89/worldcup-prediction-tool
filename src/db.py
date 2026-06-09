@@ -142,6 +142,53 @@ def init_db() -> None:
         ensure_column(conn, "predictions", "log_loss_delta", "REAL")
         ensure_column(conn, "predictions", "scored_at", "TEXT")
 
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS historical_import_batches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT NOT NULL DEFAULT 'football-data.co.uk',
+                odds_prefix TEXT NOT NULL,
+                file_name TEXT,
+                match_count INTEGER NOT NULL DEFAULT 0,
+                average_margin REAL NOT NULL DEFAULT 0.0,
+                average_brier REAL NOT NULL DEFAULT 0.0,
+                average_log_loss REAL NOT NULL DEFAULT 0.0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS historical_matches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batch_id INTEGER NOT NULL,
+                source TEXT NOT NULL DEFAULT 'football-data.co.uk',
+                odds_prefix TEXT NOT NULL,
+                match_date TEXT NOT NULL,
+                home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL,
+                actual_result TEXT NOT NULL,
+                home_decimal_odds REAL NOT NULL,
+                draw_decimal_odds REAL NOT NULL,
+                away_decimal_odds REAL NOT NULL,
+                baseline_home REAL NOT NULL,
+                baseline_draw REAL NOT NULL,
+                baseline_away REAL NOT NULL,
+                margin REAL NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (batch_id) REFERENCES historical_import_batches(id)
+            )
+            """
+        )
+
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_historical_matches_unique
+            ON historical_matches (batch_id, match_date, home_team, away_team, odds_prefix)
+            """
+        )
+
         conn.commit()
     finally:
         conn.close()
@@ -608,6 +655,219 @@ def list_scored_predictions(limit: int = 20) -> "list[dict]":
             LIMIT ?
             """,
             (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def create_historical_import_batch(
+    source: str,
+    odds_prefix: str,
+    file_name: str | None,
+    summary: dict,
+    backtest: dict,
+    conn: sqlite3.Connection | None = None,
+) -> int:
+    """Insert one row into historical_import_batches and return its new id.
+
+    Validate odds_prefix is a non-empty string.
+    Use match_count, average_margin, average_brier, average_log_loss.
+    """
+    if not isinstance(odds_prefix, str) or not odds_prefix.strip():
+        raise ValueError("odds_prefix must be a non-empty string")
+
+    match_count = summary.get("match_count", 0)
+    average_margin = summary.get("average_margin", 0.0)
+    average_brier = backtest.get("average_brier", 0.0)
+    average_log_loss = backtest.get("average_log_loss", 0.0)
+
+    owns_conn = conn is None
+    conn = conn or get_connection()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO historical_import_batches (
+                source, odds_prefix, file_name, match_count, average_margin, average_brier, average_log_loss
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                source.strip() if source else "football-data.co.uk",
+                odds_prefix.strip(),
+                file_name,
+                match_count,
+                average_margin,
+                average_brier,
+                average_log_loss,
+            ),
+        )
+        if owns_conn:
+            conn.commit()
+        return cur.lastrowid
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def create_historical_match(
+    batch_id: int,
+    match: dict,
+    conn: sqlite3.Connection | None = None,
+) -> int:
+    """Insert one parsed historical match into historical_matches and return its new id.
+
+    Validate batch_id is positive integer.
+    Validate required match fields exist.
+    """
+    if isinstance(batch_id, bool) or not isinstance(batch_id, int):
+        raise ValueError(f"batch_id must be an integer, got {batch_id!r}")
+    if batch_id <= 0:
+        raise ValueError(f"batch_id must be positive, got {batch_id!r}")
+
+    if not isinstance(match, dict):
+        raise ValueError(f"match must be a dict, got {match!r}")
+
+    required_keys = [
+        "date", "home_team", "away_team", "actual_result",
+        "home_decimal_odds", "draw_decimal_odds", "away_decimal_odds",
+        "baseline", "margin"
+    ]
+    for key in required_keys:
+        if key not in match:
+            raise ValueError(f"Missing required match field: {key}")
+
+    baseline = match["baseline"]
+    if not isinstance(baseline, dict) or not all(k in baseline for k in ("home", "draw", "away")):
+        raise ValueError("match['baseline'] must be a dict with keys 'home', 'draw', 'away'")
+
+    owns_conn = conn is None
+    conn = conn or get_connection()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO historical_matches (
+                batch_id, source, odds_prefix, match_date, home_team, away_team, actual_result,
+                home_decimal_odds, draw_decimal_odds, away_decimal_odds,
+                baseline_home, baseline_draw, baseline_away, margin
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                batch_id,
+                match.get("source", "football-data.co.uk"),
+                match.get("odds_prefix", "B365"),
+                match["date"],
+                match["home_team"],
+                match["away_team"],
+                match["actual_result"],
+                match["home_decimal_odds"],
+                match["draw_decimal_odds"],
+                match["away_decimal_odds"],
+                baseline["home"],
+                baseline["draw"],
+                baseline["away"],
+                match["margin"],
+            ),
+        )
+        if owns_conn:
+            conn.commit()
+        return cur.lastrowid
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def save_historical_import(
+    matches: list[dict],
+    odds_prefix: str,
+    file_name: str | None = None,
+) -> dict:
+    """Save a list of parsed matches to DB inside a single transaction.
+
+    Use summarise_historical_matches and backtest_baseline from the importer module.
+    Create batch.
+    Insert all matches.
+    """
+    if not matches:
+        raise ValueError("Matches list cannot be empty")
+
+    from src.importers.football_data_csv import summarise_historical_matches, backtest_baseline
+
+    summary = summarise_historical_matches(matches)
+    backtest = backtest_baseline(matches)
+
+    conn = get_connection()
+    try:
+        batch_id = create_historical_import_batch(
+            source="football-data.co.uk",
+            odds_prefix=odds_prefix,
+            file_name=file_name,
+            summary=summary,
+            backtest=backtest,
+            conn=conn,
+        )
+
+        match_ids = []
+        for match in matches:
+            match_id = create_historical_match(batch_id, match, conn=conn)
+            match_ids.append(match_id)
+
+        conn.commit()
+
+        return {
+            "batch_id": batch_id,
+            "match_ids": match_ids,
+            "match_count": summary["match_count"],
+            "average_margin": summary["average_margin"],
+            "average_brier": backtest["average_brier"],
+            "average_log_loss": backtest["average_log_loss"],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def list_historical_import_batches(limit: int = 10) -> list[dict]:
+    """Return most recent batches."""
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT id, source, odds_prefix, file_name, match_count, average_margin, average_brier, average_log_loss, created_at
+            FROM historical_import_batches
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def list_historical_matches(batch_id: int, limit: int = 20) -> list[dict]:
+    """Return matches for a batch."""
+    if isinstance(batch_id, bool) or not isinstance(batch_id, int):
+        raise ValueError(f"batch_id must be an integer, got {batch_id!r}")
+
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT id, batch_id, source, odds_prefix, match_date, home_team, away_team, actual_result,
+                   home_decimal_odds, draw_decimal_odds, away_decimal_odds,
+                   baseline_home, baseline_draw, baseline_away, margin, created_at
+            FROM historical_matches
+            WHERE batch_id = ?
+            ORDER BY id ASC
+            LIMIT ?
+            """,
+            (batch_id, limit),
         ).fetchall()
         return [dict(row) for row in rows]
     finally:

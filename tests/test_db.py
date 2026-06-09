@@ -409,5 +409,176 @@ class TestListScoredAndUnscored(DBTestCase):
         self.assertIsNotNone(scored[0]["scored_at"])
 
 
+class TestHistoricalImportPersistence(DBTestCase):
+    def setUp(self):
+        super().setUp()
+        self.valid_match_data = {
+            "date": "18/12/2022",
+            "home_team": "Argentina",
+            "away_team": "France",
+            "actual_result": "draw",
+            "home_decimal_odds": 2.80,
+            "draw_decimal_odds": 3.00,
+            "away_decimal_odds": 2.80,
+            "baseline": {"home": 0.33, "draw": 0.34, "away": 0.33},
+            "margin": 0.05,
+            "source": "football-data.co.uk",
+            "odds_prefix": "B365",
+        }
+
+    def test_1_init_db_creates_historical_tables_and_index(self):
+        """init_db creates historical_import_batches, historical_matches and the unique index."""
+        conn = db.get_connection()
+        try:
+            names = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+            indexes = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'index'"
+                ).fetchall()
+            }
+        finally:
+            conn.close()
+        self.assertIn("historical_import_batches", names)
+        self.assertIn("historical_matches", names)
+        self.assertIn("idx_historical_matches_unique", indexes)
+
+    def test_2_create_historical_import_batch(self):
+        """create_historical_import_batch returns a valid integer ID and saves columns correctly."""
+        summary = {"match_count": 5, "average_margin": 0.06}
+        backtest = {"average_brier": 0.42, "average_log_loss": 0.75}
+        batch_id = db.create_historical_import_batch(
+            source="football-data.co.uk",
+            odds_prefix="B365",
+            file_name="test.csv",
+            summary=summary,
+            backtest=backtest,
+        )
+        self.assertIsInstance(batch_id, int)
+        self.assertGreater(batch_id, 0)
+
+        conn = db.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute(
+                "SELECT * FROM historical_import_batches WHERE id = ?", (batch_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+        self.assertEqual(row["source"], "football-data.co.uk")
+        self.assertEqual(row["odds_prefix"], "B365")
+        self.assertEqual(row["file_name"], "test.csv")
+        self.assertEqual(row["match_count"], 5)
+        self.assertAlmostEqual(row["average_margin"], 0.06)
+        self.assertAlmostEqual(row["average_brier"], 0.42)
+        self.assertAlmostEqual(row["average_log_loss"], 0.75)
+        self.assertIsNotNone(row["created_at"])
+
+    def test_3_create_historical_match(self):
+        """create_historical_match saves one parsed match correctly."""
+        summary = {"match_count": 1, "average_margin": 0.05}
+        backtest = {"average_brier": 0.25, "average_log_loss": 0.50}
+        batch_id = db.create_historical_import_batch(
+            source="football-data.co.uk",
+            odds_prefix="B365",
+            file_name="test.csv",
+            summary=summary,
+            backtest=backtest,
+        )
+        match_id = db.create_historical_match(batch_id, self.valid_match_data)
+        self.assertIsInstance(match_id, int)
+        self.assertGreater(match_id, 0)
+
+        conn = db.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute(
+                "SELECT * FROM historical_matches WHERE id = ?", (match_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+        self.assertEqual(row["batch_id"], batch_id)
+        self.assertEqual(row["match_date"], "18/12/2022")
+        self.assertEqual(row["home_team"], "Argentina")
+        self.assertEqual(row["away_team"], "France")
+        self.assertEqual(row["actual_result"], "draw")
+        self.assertEqual(row["home_decimal_odds"], 2.80)
+        self.assertEqual(row["baseline_home"], 0.33)
+        self.assertEqual(row["baseline_draw"], 0.34)
+        self.assertEqual(row["baseline_away"], 0.33)
+        self.assertEqual(row["margin"], 0.05)
+
+    def test_4_save_historical_import_valid(self):
+        """save_historical_import creates one batch and matches and returns metrics."""
+        matches = [self.valid_match_data]
+        res = db.save_historical_import(matches, "B365", "import.csv")
+        self.assertIn("batch_id", res)
+        self.assertIn("match_ids", res)
+        self.assertEqual(res["match_count"], 1)
+        self.assertAlmostEqual(res["average_margin"], 0.05)
+        self.assertGreater(res["average_brier"], 0.0)
+        self.assertGreater(res["average_log_loss"], 0.0)
+
+        conn = db.get_connection()
+        try:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM historical_import_batches").fetchone()[0], 1)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM historical_matches").fetchone()[0], 1)
+        finally:
+            conn.close()
+
+    def test_5_list_historical_import_batches(self):
+        """list_historical_import_batches returns saved batches."""
+        db.save_historical_import([self.valid_match_data], "B365", "import1.csv")
+        db.save_historical_import([self.valid_match_data], "B365", "import2.csv")
+
+        batches = db.list_historical_import_batches()
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(batches[0]["file_name"], "import2.csv")
+        self.assertEqual(batches[1]["file_name"], "import1.csv")
+
+    def test_6_list_historical_matches(self):
+        """list_historical_matches returns matches for a batch."""
+        res = db.save_historical_import([self.valid_match_data], "B365", "import.csv")
+        batch_id = res["batch_id"]
+
+        matches = db.list_historical_matches(batch_id)
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["home_team"], "Argentina")
+        self.assertEqual(matches[0]["match_date"], "18/12/2022")
+
+    def test_7_empty_historical_import_raises(self):
+        """save_historical_import raises ValueError on empty match list."""
+        with self.assertRaises(ValueError):
+            db.save_historical_import([], "B365")
+
+    def test_8_invalid_match_missing_baseline_raises(self):
+        """create_historical_match raises ValueError when match is missing required keys or baseline."""
+        invalid_match = self.valid_match_data.copy()
+        del invalid_match["baseline"]
+        with self.assertRaises(ValueError):
+            db.create_historical_match(1, invalid_match)
+
+    def test_9_failed_import_rolls_back(self):
+        """Failed import rolls back all batch and match rows if a later match is invalid."""
+        invalid_match = self.valid_match_data.copy()
+        del invalid_match["home_team"]
+        matches = [self.valid_match_data, invalid_match]
+
+        with self.assertRaises(ValueError):
+            db.save_historical_import(matches, "B365")
+
+        conn = db.get_connection()
+        try:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM historical_import_batches").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM historical_matches").fetchone()[0], 0)
+        finally:
+            conn.close()
+
+
 if __name__ == "__main__":
     unittest.main()

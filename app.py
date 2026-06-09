@@ -23,6 +23,9 @@ from src.db import (
     list_unscored_predictions,
     save_prediction_flow,
     score_prediction,
+    save_historical_import,
+    list_historical_import_batches,
+    list_historical_matches,
 )
 from src.odds import decimal_odds_to_implied_probabilities
 from src.predictor import blend_probabilities
@@ -394,6 +397,13 @@ odds_prefix = st.text_input(
 
 if uploaded_file is not None:
     try:
+        # Track file to clear saved status if a new file is uploaded
+        current_file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+        if st.session_state.get("last_uploaded_file_key") != current_file_key:
+            st.session_state["last_uploaded_file_key"] = current_file_key
+            st.session_state.pop("last_historical_save", None)
+            st.session_state.pop("historical_save_error", None)
+
         # 3. parse matches
         matches = load_csv_file(uploaded_file, odds_prefix=odds_prefix)
         
@@ -442,7 +452,80 @@ if uploaded_file is not None:
                     "margin": _pct(m["margin"])
                 })
             st.table(preview_rows)
+
+            # DB persistence after preview approval
+            st.subheader("Persist parsed matches")
+            st.caption(
+                "Click the button below to persist the parsed matches and backtest baseline scores "
+                "to the local SQLite database."
+            )
+            if st.button("Save parsed historical import to local database", key="save_historical_import_button"):
+                try:
+                    file_name = uploaded_file.name if hasattr(uploaded_file, "name") else None
+                    save_res = save_historical_import(matches, odds_prefix, file_name)
+                    st.session_state["last_historical_save"] = save_res
+                    st.session_state.pop("historical_save_error", None)
+                except Exception as error:
+                    st.session_state["historical_save_error"] = str(error)
+                    st.session_state.pop("last_historical_save", None)
+
+            if "historical_save_error" in st.session_state:
+                st.error(f"Save failed: {st.session_state['historical_save_error']}")
+
+            if "last_historical_save" in st.session_state:
+                save_res = st.session_state["last_historical_save"]
+                st.success(
+                    f"Successfully saved historical import batch #{save_res['batch_id']}!\n"
+                    f"Match count: {save_res['match_count']} matches.\n"
+                    f"Average baseline Brier: {save_res['average_brier']:.4f}\n"
+                    f"Average baseline Log Loss: {save_res['average_log_loss']:.4f}"
+                )
+                st.warning("⚠️ This stores parsed match records only, not the raw uploaded CSV file.")
             
     except Exception as error:
         # 7. Handle errors with st.error(str(error))
         st.error(str(error))
+
+# --- Recent historical import batches --------------------------------------
+st.header("Recent historical import batches")
+st.caption("Saved batches from historical imports.")
+recent_batches = list_historical_import_batches(limit=10)
+if recent_batches:
+    st.table(
+        [
+            {
+                "Batch ID": b["id"],
+                "Odds Prefix": b["odds_prefix"],
+                "File Name": b["file_name"] or "N/A",
+                "Matches": b["match_count"],
+                "Avg Margin": _pct(b["average_margin"]),
+                "Avg Brier": f"{b['average_brier']:.4f}",
+                "Avg LogLoss": f"{b['average_log_loss']:.4f}",
+                "Imported at": b["created_at"],
+            }
+            for b in recent_batches
+        ]
+    )
+    
+    # Optionally show first few rows for the most recent batch using list_historical_matches
+    latest_batch_id = recent_batches[0]["id"]
+    st.markdown(f"**First 5 matches from latest batch #{latest_batch_id}**")
+    recent_matches = list_historical_matches(latest_batch_id, limit=5)
+    if recent_matches:
+        st.table(
+            [
+                {
+                    "Date": m["match_date"],
+                    "Home Team": m["home_team"],
+                    "Away Team": m["away_team"],
+                    "Result": m["actual_result"],
+                    "Home Odds": f"{m['home_decimal_odds']:.2f}",
+                    "Draw Odds": f"{m['draw_decimal_odds']:.2f}",
+                    "Away Odds": f"{m['away_decimal_odds']:.2f}",
+                    "Margin": _pct(m["margin"]),
+                }
+                for m in recent_matches
+            ]
+        )
+else:
+    st.write("No historical import batches saved yet.")

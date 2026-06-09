@@ -56,13 +56,14 @@ streamlit run app.py
 3. Upload a Football-Data.co.uk-style `.csv` file.
 4. Select or enter the odds prefix (e.g. `B365` or `PS`).
 5. View the de-vigged baseline backtest metrics, summary statistics, and first 10 matches preview in-memory (no database writes will occur yet).
+6. After previewing a historical CSV import, you can explicitly save the parsed records to the local SQLite database; raw uploaded files are not persisted.
 
 ## Current status
 
 The core math layers (odds de-vig, deterministic predictor/blending, scoring) are built and tested. A Streamlit shell on top lets you:
 - Enter odds and factors manually to save the full prediction flow.
 - Score saved predictions post-match.
-- Upload a local Football-Data.co.uk-style CSV in the **Historical CSV backtest preview** section to view match statistics and baseline bookmaker backtest metrics (Brier score and log loss) in-memory. **Note:** CSV upload is strictly for preview/backtesting; no database writes occur during preview.
+- Upload a local Football-Data.co.uk-style CSV in the **Historical CSV backtest preview** section to view match statistics and baseline bookmaker backtest metrics (Brier score and log loss) in-memory. **Note:** CSV upload is strictly for preview/backtesting; no database writes occur during preview. After previewing, you can explicitly save the parsed records to the local SQLite database.
 
 See [docs/STATUS.md](docs/STATUS.md) for the authoritative, up-to-date picture (current stage, next task, known gaps).
 
