@@ -20,3 +20,5 @@ structural choice. Do not rewrite history — supersede with a new row instead.
 | 2026-06-10 | License project under MIT. | MIT is permissive, simple, widely understood, and supports broad developer reuse/contribution. | Accepted |
 | 2026-06-10 | Persist parsed historical CSV records, not raw uploaded CSV files. | Keeps local storage lean, avoids storing unnecessary uploaded source files, and preserves only structured match/odds/backtest-ready records. | Accepted |
 | 2026-06-10 | Make GitHub repository public. | Allow other developers to inspect, fork, build on, and contribute to the project. | Accepted |
+| 2026-06-10 | Use synthetic sample CSV data for public demo/testing. | Gives contributors a safe quick-start path without relying on copyrighted, paid, scraped, or real bookmaker data. | Accepted |
+

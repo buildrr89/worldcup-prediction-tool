@@ -334,6 +334,41 @@ class TestFootballDataCSVImporter(unittest.TestCase):
             load_csv_file(file_obj)
         self.assertIn("Row 3", str(ctx.exception))
 
+    def test_18_sample_csv_compatibility(self):
+        """Verify the synthetic sample CSV loads successfully, has at least 8 rows, and passes summary/backtest."""
+        sample_path = Path(__file__).resolve().parent.parent / "sample_data" / "football_data_sample.csv"
+        self.assertTrue(sample_path.exists(), f"Sample CSV file does not exist at {sample_path}")
+        
+        matches = load_csv(sample_path, odds_prefix="B365")
+        
+        # verifies at least 8 parsed rows
+        self.assertGreaterEqual(len(matches), 8)
+        
+        # verifies summarise_historical_matches returns non-zero match_count
+        summary = summarise_historical_matches(matches)
+        self.assertEqual(summary["match_count"], len(matches))
+        self.assertGreater(summary["match_count"], 0)
+        
+        # verifies backtest_baseline returns non-zero match_count
+        backtest = backtest_baseline(matches)
+        self.assertEqual(backtest["match_count"], len(matches))
+        self.assertGreater(backtest["match_count"], 0)
+        
+        # verifies all parsed team names are synthetic/fake by checking they are from an allowlist used in the sample
+        allowlist = {
+            "Alpha FC",
+            "Beta United",
+            "Gamma City",
+            "Delta Rovers",
+            "Echo Town",
+            "Foxtrot Athletic",
+            "Nova XI",
+            "Orion Club"
+        }
+        for match in matches:
+            self.assertIn(match["home_team"], allowlist)
+            self.assertIn(match["away_team"], allowlist)
+
 
 if __name__ == "__main__":
     unittest.main()

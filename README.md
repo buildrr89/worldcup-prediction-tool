@@ -59,6 +59,21 @@ streamlit run app.py
 6. After previewing a historical CSV import, you can explicitly save the parsed records to the local SQLite database; raw uploaded files are not persisted.
 7. After saving historical CSV imports, the app can compare import batches by bookmaker margin, Brier score, log loss, and result distribution.
 
+### Quick-start demo data
+A legally safe, fully synthetic sample CSV file is provided at:
+`sample_data/football_data_sample.csv`
+
+To test the tool's historical backtesting flow quickly:
+1. Run the app:
+   ```bash
+   streamlit run app.py
+   ```
+2. Scroll to the **Historical CSV backtest preview** section.
+3. Use the **Quick-start demo** subsection to download the synthetic sample CSV, or reference the local file at `sample_data/football_data_sample.csv`.
+4. Upload it in the **Upload historical CSV file** area.
+5. Preview the in-memory results, stats, and fixtures.
+6. Optionally click **Save parsed historical import to local database** to persist the parsed records locally. Note that raw uploaded files are not persisted.
+
 ## Current status
 
 The core math layers (odds de-vig, deterministic predictor/blending, scoring) are built and tested. A Streamlit shell on top lets you:
