@@ -7,14 +7,14 @@
 
 ## Current stage
 
-Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, a baseline backtest dashboard comparing saved historical CSV import batches, a legally safe synthetic sample CSV quick-start demo flow, public collaboration configuration, and the security disclosure reporting path are complete. Parsing of historical match and betting odds CSVs now normalizes match dates to ISO-8601 YYYY-MM-DD.
+Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, a baseline backtest dashboard comparing saved historical CSV import batches, a legally safe synthetic sample CSV quick-start demo flow, public collaboration configuration, and security disclosure reporting are complete. The Streamlit `app.py` has been refactored into modular submodules under `src/ui/` without changing any behavior or state logic.
 
 ## GitHub connection status
 
 - **Status:** Connected to GitHub
 - **Repository URL:** [worldcup-prediction-tool](https://github.com/buildrr89/worldcup-prediction-tool)
 - **Visibility:** Public
-- **Latest public-release commit hash:** `6d5187c`
+- **Latest public-release commit hash:** `95b541a`
 - **Branch:** `main`
 - **License:** MIT
 - **Public release:** Live
@@ -70,7 +70,16 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
   result, perfect Brier = 0.0, worse-vs-better Brier ordering, good-vs-bad log
   loss ordering, invalid epsilon, comparison key set, and improvement/no-
   improvement marking). All passing.
-- `app.py` — Streamlit shell. Completed. Supports manual match prediction, post-match prediction scoring, historical CSV preview and backtesting, persisting approved historical CSV imports to SQLite with automatic batch listing, a baseline backtest dashboard comparing saved import batches, and a Quick-start demo section for downloading the synthetic sample CSV.
+- `app.py` — Streamlit shell. Completed. Refactored into a lightweight entrypoint delegating rendering to modular UI files under `src/ui/`.
+- `src/ui/` package — Modular Streamlit UI components:
+  - `src/ui/__init__.py` — Package initialization.
+  - `src/ui/formatting.py` — Percentage presentation helper (`_pct`).
+  - `src/ui/manual_prediction.py` — Manual prediction form inputs, factor sliders, de-vig baseline calculations, applied factors, explanation results, and save button.
+  - `src/ui/saved_predictions.py` — Save prediction DB transaction logic, recent prediction table, result entry form, and recent scored predictions.
+  - `src/ui/historical_csv.py` — Upload historical CSV, preview summary/baseline backtest metrics, 10-match preview table, DB persist action, and recent batches list.
+  - `src/ui/historical_dashboard.py` — Historical backtest batch metrics dashboard, batch comparison table, Brier/LogLoss bar chart, and result distribution table.
+  - `src/ui/demo.py` — Legally safe quick-start demo explanation and sample CSV download button.
+- `tests/test_ui_imports.py` — Smoke tests ensuring UI modules import correctly and expose required render functions (conditional skip if Streamlit is not installed).
 - `requirements.txt` — Completed. Single dependency: `streamlit`. (Standard
   library covers everything else.)
 - Public-repo readiness docs & templates — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
@@ -95,7 +104,7 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 
 ## Next recommended task
 
-**Refactor app.py into small Streamlit UI modules without changing behaviour.**
+**Add aggregate calibration dashboard for saved manual predictions vs bookmaker baseline.**
 
 ## Validation commands
 
@@ -103,14 +112,14 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 python3 src/db.py                       # idempotent: re-creates missing tables and applies schema updates
 sqlite3 data/worldcup.db ".schema"      # confirm the tables and columns exist
 python3 -m compileall src app.py        # catch syntax errors
-python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py  # run all 92 tests
+python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py tests/test_ui_imports.py  # run all 93 tests
 streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-10, CSV Date Normalization & Security Disclosure update):**
-`python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py` →
-`Ran 92 tests in 0.242s` / `OK` (all 92 passing).
-`python3 -m compileall src tests app.py` → compiled successfully.
+**Last run (2026-06-10, app.py UI Refactoring):**
+`python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py tests/test_ui_imports.py` →
+`Ran 93 tests in 0.238s` / `OK` (all 92 passing, 1 skipped in environment without Streamlit).
+`python3 -m compileall src app.py` → compiled successfully.
 
 ## Known gaps
 
