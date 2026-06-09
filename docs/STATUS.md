@@ -3,7 +3,7 @@
 > Single source of truth for "where we are." Update this after any meaningful
 > work — it is how every tool (Claude Code, Codex, Antigravity, …) stays in sync.
 
-**Last updated:** 2026-06-09
+**Last updated:** 2026-06-10
 
 ## Current stage
 
@@ -14,6 +14,15 @@ layer are all built and tested. `app.py` lets the owner enter odds and factors,
 see baseline + blended probabilities, **and explicitly save the full flow
 (match, signal, factors, prediction) to the local DB via a dedicated button.**
 Saved predictions are listed back in the app.
+
+## GitHub connection status
+
+- **Status:** Connected to GitHub
+- **Repository URL:** [worldcup-prediction-tool](https://github.com/buildrr89/worldcup-prediction-tool)
+- **Visibility:** Private
+- **Latest pushed commit:** `85084ac` ("Initial local-first World Cup prediction tool")
+- **Branch:** `main`
+- **Public release:** Pending (license not chosen yet)
 
 ## Completed files
 
