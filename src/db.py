@@ -10,6 +10,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+from src.scoring import actual_result_to_one_hot, compare_prediction_to_baseline
+
 # Resolve paths relative to the project root (parent of this file's `src/` dir),
 # so the DB lands in the same place regardless of the current working directory.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -28,6 +30,20 @@ def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+def ensure_column(
+    conn: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_sql: str,
+) -> None:
+    """Ensure a column exists on a table, adding it if missing. Idempotent."""
+    cur = conn.cursor()
+    cur.execute(f"PRAGMA table_info({table_name})")
+    columns = {row[1] for row in cur.fetchall()}
+    if column_name not in columns:
+        cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}")
 
 
 def init_db() -> None:
@@ -115,6 +131,16 @@ def init_db() -> None:
             )
             """
         )
+
+        # Ensure new columns exist on predictions table for result scoring
+        ensure_column(conn, "predictions", "actual_result", "TEXT")
+        ensure_column(conn, "predictions", "prediction_brier", "REAL")
+        ensure_column(conn, "predictions", "baseline_brier", "REAL")
+        ensure_column(conn, "predictions", "brier_delta", "REAL")
+        ensure_column(conn, "predictions", "prediction_log_loss", "REAL")
+        ensure_column(conn, "predictions", "baseline_log_loss", "REAL")
+        ensure_column(conn, "predictions", "log_loss_delta", "REAL")
+        ensure_column(conn, "predictions", "scored_at", "TEXT")
 
         conn.commit()
     finally:
@@ -400,6 +426,184 @@ def list_recent_predictions(limit: int = 10) -> "list[dict]":
                 p.created_at AS created_at
             FROM predictions p
             JOIN matches m ON m.id = p.match_id
+            ORDER BY p.id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def get_prediction_for_scoring(prediction_id: int) -> dict:
+    """Return enough data to score a prediction, loading it by ID.
+
+    Raises ValueError if prediction_id is invalid, if prediction is not found,
+    or if the baseline is missing from its reasoning_json.
+    """
+    if isinstance(prediction_id, bool) or not isinstance(prediction_id, int):
+        raise ValueError(f"prediction_id must be an integer, got {prediction_id!r}")
+
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT id, match_id, home_probability, draw_probability, away_probability,
+                   actual_result, prediction_brier, baseline_brier, brier_delta,
+                   prediction_log_loss, baseline_log_loss, log_loss_delta, scored_at,
+                   reasoning_json
+            FROM predictions
+            WHERE id = ?
+            """,
+            (prediction_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"Prediction #{prediction_id} not found")
+
+        res = dict(row)
+        reasoning = {}
+        if res.get("reasoning_json"):
+            try:
+                reasoning = json.loads(res["reasoning_json"])
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to parse reasoning_json for prediction #{prediction_id}: {e}"
+                )
+
+        baseline = reasoning.get("baseline")
+        if not baseline or not isinstance(baseline, dict):
+            raise ValueError(
+                f"Prediction #{prediction_id} cannot be scored because baseline is missing from reasoning_json"
+            )
+
+        res["baseline"] = baseline
+        return res
+    finally:
+        conn.close()
+
+
+def score_prediction(prediction_id: int, actual_result: str) -> dict:
+    """Score a saved prediction against the bookmaker baseline.
+
+    Validates actual_result, loads baseline and prediction probability,
+    computes scores, and updates the row in the database.
+    """
+    # Validate result format/values (e.g. 'home', 'draw', 'away')
+    actual_result_to_one_hot(actual_result)
+
+    # Load prediction data (raises ValueError if not found or missing baseline)
+    pred_data = get_prediction_for_scoring(prediction_id)
+
+    prediction_probs = {
+        "home": pred_data["home_probability"],
+        "draw": pred_data["draw_probability"],
+        "away": pred_data["away_probability"],
+    }
+    baseline_probs = pred_data["baseline"]
+
+    # Compare prediction to baseline
+    scores = compare_prediction_to_baseline(prediction_probs, baseline_probs, actual_result)
+
+    # Update the database
+    conn = get_connection()
+    try:
+        conn.execute(
+            """
+            UPDATE predictions
+            SET actual_result = ?,
+                prediction_brier = ?,
+                baseline_brier = ?,
+                brier_delta = ?,
+                prediction_log_loss = ?,
+                baseline_log_loss = ?,
+                log_loss_delta = ?,
+                scored_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (
+                actual_result,
+                scores["prediction_brier"],
+                scores["baseline_brier"],
+                scores["brier_delta"],
+                scores["prediction_log_loss"],
+                scores["baseline_log_loss"],
+                scores["log_loss_delta"],
+                prediction_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "prediction_id": prediction_id,
+        "actual_result": actual_result,
+        "prediction_brier": scores["prediction_brier"],
+        "baseline_brier": scores["baseline_brier"],
+        "brier_delta": scores["brier_delta"],
+        "prediction_log_loss": scores["prediction_log_loss"],
+        "baseline_log_loss": scores["baseline_log_loss"],
+        "log_loss_delta": scores["log_loss_delta"],
+        "prediction_improved_brier": scores["prediction_improved_brier"],
+        "prediction_improved_log_loss": scores["prediction_improved_log_loss"],
+    }
+
+
+def list_unscored_predictions(limit: int = 20) -> "list[dict]":
+    """Return saved predictions that have not been scored yet, most recent first."""
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                p.id AS prediction_id,
+                p.match_id AS match_id,
+                m.home_team AS home_team,
+                m.away_team AS away_team,
+                m.stage AS stage,
+                p.created_at AS created_at,
+                p.home_probability AS home_probability,
+                p.draw_probability AS draw_probability,
+                p.away_probability AS away_probability
+            FROM predictions p
+            JOIN matches m ON m.id = p.match_id
+            WHERE p.actual_result IS NULL
+            ORDER BY p.id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def list_scored_predictions(limit: int = 20) -> "list[dict]":
+    """Return scored predictions, most recent first."""
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                p.id AS prediction_id,
+                p.match_id AS match_id,
+                m.home_team AS home_team,
+                m.away_team AS away_team,
+                p.actual_result AS actual_result,
+                p.prediction_brier AS prediction_brier,
+                p.baseline_brier AS baseline_brier,
+                p.brier_delta AS brier_delta,
+                p.prediction_log_loss AS prediction_log_loss,
+                p.baseline_log_loss AS baseline_log_loss,
+                p.log_loss_delta AS log_loss_delta,
+                p.scored_at AS scored_at
+            FROM predictions p
+            JOIN matches m ON m.id = p.match_id
+            WHERE p.actual_result IS NOT NULL
             ORDER BY p.id DESC
             LIMIT ?
             """,

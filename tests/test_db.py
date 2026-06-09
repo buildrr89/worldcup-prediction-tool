@@ -250,5 +250,164 @@ class TestListRecentPredictions(DBTestCase):
         self.assertEqual(rows[0]["home_team"], "France")
 
 
+class TestSchemaMigration(DBTestCase):
+    def test_scoring_columns_exist(self):
+        """init_db creates predictions table with the 8 new scoring columns."""
+        conn = db.get_connection()
+        try:
+            row = conn.execute("PRAGMA table_info(predictions)").fetchall()
+            columns = {r[1] for r in row}
+        finally:
+            conn.close()
+
+        expected_cols = [
+            "actual_result",
+            "prediction_brier",
+            "baseline_brier",
+            "brier_delta",
+            "prediction_log_loss",
+            "baseline_log_loss",
+            "log_loss_delta",
+            "scored_at",
+        ]
+        for col in expected_cols:
+            self.assertIn(col, columns)
+
+    def test_init_db_is_idempotent_with_columns(self):
+        """Calling init_db multiple times does not raise errors or duplicate columns."""
+        db.init_db()
+        db.init_db()
+        conn = db.get_connection()
+        try:
+            row = conn.execute("PRAGMA table_info(predictions)").fetchall()
+            columns = [r[1] for r in row]
+        finally:
+            conn.close()
+        self.assertEqual(columns.count("actual_result"), 1)
+
+
+class TestGetPredictionForScoring(DBTestCase):
+    def test_returns_prediction_with_baseline(self):
+        match = {"home_team": "Brazil", "away_team": "Croatia"}
+        flow = db.save_prediction_flow(match, VALID_ODDS_RESULT, [], VALID_PREDICTION)
+        pred_id = flow["prediction_id"]
+
+        res = db.get_prediction_for_scoring(pred_id)
+        self.assertEqual(res["id"], pred_id)
+        self.assertEqual(res["match_id"], flow["match_id"])
+        self.assertEqual(res["home_probability"], 0.50)
+        self.assertEqual(res["baseline"], VALID_PREDICTION["baseline"])
+        self.assertIsNone(res["actual_result"])
+
+    def test_missing_baseline_raises_value_error(self):
+        # Create a prediction manually in DB that has no baseline in reasoning_json
+        match_id = self._new_match_id()
+        conn = db.get_connection()
+        try:
+            cur = conn.execute(
+                """
+                INSERT INTO predictions (match_id, home_probability, draw_probability, away_probability, reasoning_json)
+                VALUES (?, 0.5, 0.3, 0.2, ?)
+                """,
+                (match_id, json.dumps({"explanation": "no baseline here"})),
+            )
+            pred_id = cur.lastrowid
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.assertRaises(ValueError) as ctx:
+            db.get_prediction_for_scoring(pred_id)
+        self.assertIn("baseline is missing", str(ctx.exception))
+
+    def test_invalid_prediction_id_raises(self):
+        with self.assertRaises(ValueError):
+            db.get_prediction_for_scoring(9999)
+        with self.assertRaises(ValueError):
+            db.get_prediction_for_scoring("not-int")
+
+
+class TestScorePrediction(DBTestCase):
+    def test_updates_db_and_returns_scores(self):
+        match = {"home_team": "Brazil", "away_team": "Croatia"}
+        flow = db.save_prediction_flow(match, VALID_ODDS_RESULT, [], VALID_PREDICTION)
+        pred_id = flow["prediction_id"]
+
+        res = db.score_prediction(pred_id, "home")
+        self.assertEqual(res["prediction_id"], pred_id)
+        self.assertEqual(res["actual_result"], "home")
+
+        self.assertIn("prediction_brier", res)
+        self.assertIn("baseline_brier", res)
+        self.assertIn("brier_delta", res)
+        self.assertIn("prediction_log_loss", res)
+        self.assertIn("baseline_log_loss", res)
+        self.assertIn("log_loss_delta", res)
+        self.assertIn("prediction_improved_brier", res)
+        self.assertIn("prediction_improved_log_loss", res)
+
+        conn = db.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute("SELECT * FROM predictions WHERE id = ?", (pred_id,)).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(row["actual_result"], "home")
+        self.assertEqual(row["prediction_brier"], res["prediction_brier"])
+        self.assertEqual(row["baseline_brier"], res["baseline_brier"])
+        self.assertIsNotNone(row["scored_at"])
+
+    def test_invalid_actual_result_raises(self):
+        match = {"home_team": "Brazil", "away_team": "Croatia"}
+        flow = db.save_prediction_flow(match, VALID_ODDS_RESULT, [], VALID_PREDICTION)
+        pred_id = flow["prediction_id"]
+
+        with self.assertRaises(ValueError):
+            db.score_prediction(pred_id, "invalid_result")
+
+
+class TestListScoredAndUnscored(DBTestCase):
+    def test_lists_unscored_and_scored_predictions(self):
+        self.assertEqual(len(db.list_unscored_predictions()), 0)
+        self.assertEqual(len(db.list_scored_predictions()), 0)
+
+        match1 = {"home_team": "Brazil", "away_team": "Croatia"}
+        flow1 = db.save_prediction_flow(match1, VALID_ODDS_RESULT, [], VALID_PREDICTION)
+
+        match2 = {"home_team": "France", "away_team": "Spain"}
+        flow2 = db.save_prediction_flow(match2, VALID_ODDS_RESULT, [], VALID_PREDICTION)
+
+        unscored = db.list_unscored_predictions()
+        self.assertEqual(len(unscored), 2)
+        self.assertEqual(unscored[0]["home_team"], "France")
+        self.assertEqual(unscored[1]["home_team"], "Brazil")
+        self.assertIn("prediction_id", unscored[0])
+        self.assertIn("match_id", unscored[0])
+        self.assertIn("home_probability", unscored[0])
+        self.assertIn("draw_probability", unscored[0])
+        self.assertIn("away_probability", unscored[0])
+        self.assertIn("created_at", unscored[0])
+
+        db.score_prediction(flow1["prediction_id"], "draw")
+
+        unscored = db.list_unscored_predictions()
+        scored = db.list_scored_predictions()
+        self.assertEqual(len(unscored), 1)
+        self.assertEqual(len(scored), 1)
+
+        self.assertEqual(unscored[0]["prediction_id"], flow2["prediction_id"])
+        self.assertEqual(scored[0]["prediction_id"], flow1["prediction_id"])
+        self.assertEqual(scored[0]["actual_result"], "draw")
+
+        self.assertIn("prediction_brier", scored[0])
+        self.assertIn("baseline_brier", scored[0])
+        self.assertIn("brier_delta", scored[0])
+        self.assertIn("prediction_log_loss", scored[0])
+        self.assertIn("baseline_log_loss", scored[0])
+        self.assertIn("log_loss_delta", scored[0])
+        self.assertIsNotNone(scored[0]["scored_at"])
+
+
 if __name__ == "__main__":
     unittest.main()

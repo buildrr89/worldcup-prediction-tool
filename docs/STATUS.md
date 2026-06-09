@@ -7,13 +7,7 @@
 
 ## Current stage
 
-Core math layer complete, a Streamlit shell is wired on top of it, **and manual
-SQLite persistence now works.** The database foundation exists, the odds de-vig
-layer, the deterministic predictor/blending layer, and the scoring/evaluation
-layer are all built and tested. `app.py` lets the owner enter odds and factors,
-see baseline + blended probabilities, **and explicitly save the full flow
-(match, signal, factors, prediction) to the local DB via a dedicated button.**
-Saved predictions are listed back in the app.
+Core math layer, manual SQLite persistence, and post-match prediction scoring/persistence are complete. Wires a Streamlit UI allowing the user to view recent saved predictions, record actual match result outcomes (`home`/`draw`/`away`), score predictions against the bookmaker baseline using Brier score and log loss, and view scored prediction history. Idempotent schema migrations add nullable scoring columns to the `predictions` table.
 
 ## GitHub connection status
 
@@ -29,29 +23,25 @@ Saved predictions are listed back in the app.
 - Governance docs: `AGENTS.md`, `CLAUDE.md`, `README.md`,
   `docs/PROJECT_BRIEF.md`, `docs/BUILD_RULES.md`, `docs/STATUS.md`,
   `docs/DECISIONS.md`, `docs/HANDOFF_TEMPLATE.md`.
-- `src/db.py` — SQLite foundation (connection helper + `init_db()`) **plus
-  manual persistence helpers**: `create_match`, `create_signal`,
+- `src/db.py` — SQLite foundation (connection helper + `init_db()`) plus
+  manual persistence helpers: `create_match`, `create_signal`,
   `create_factor`, `create_prediction`, `save_prediction_flow` (single
-  transaction, no partial saves), and `list_recent_predictions`. All use
-  parameterized SQL and standard-library `sqlite3` only; `create_*` helpers
-  accept an optional shared `conn`. `get_connection()` now mkdirs
-  `DB_PATH.parent` (reading `DB_PATH` at call time) so tests can point it at a
-  temp DB by monkeypatching `db.DB_PATH`. No schema change: factor `weight` is
-  preserved inside `factors.note` (see `DECISIONS.md`).
-- `tests/test_db.py` — 13 `unittest` tests for the persistence layer, each
-  against a `tempfile.TemporaryDirectory` DB (never touches
-  `data/worldcup.db`): table creation, `create_match`/`create_signal`/
-  `create_factor`/`create_prediction` round-trips, `save_prediction_flow`
-  (incl. rollback on bad input), `list_recent_predictions` ordering, and
-  invalid-name / invalid-match-id `ValueError`s. All passing.
+  transaction, no partial saves), `list_recent_predictions`,
+  `get_prediction_for_scoring`, `score_prediction`,
+  `list_unscored_predictions`, and `list_scored_predictions`. Idempotent
+  `ensure_column` guards are run in `init_db` to append the 8 nullable scoring columns.
+- `tests/test_db.py` — 21 `unittest` tests for the persistence and migration layer, each
+  against a `tempfile.TemporaryDirectory` DB: table creation, creation helpers, flow persistence
+  with rollback, prediction loading for scoring, actual scoring computation and updating,
+  unscored/scored lists filters, and validation exceptions. All passing.
 - `src/odds.py` — odds de-vig math layer (pure function
-  `decimal_odds_to_implied_probabilities`). **Completed** — converts 1X2
+  `decimal_odds_to_implied_probabilities`). Completed — converts 1X2
   decimal odds to de-vigged baseline probabilities; validates inputs and
   raises `ValueError` for non-numeric or `<= 1.0` odds.
 - `tests/test_odds.py` — 5 `unittest` tests for the odds layer (normal market,
   heavy favourite, sum-to-1.0, invalid odds, non-numeric odds). All passing.
 - `src/predictor.py` — deterministic predictor/blending math layer (pure
-  function `blend_probabilities`). **Completed** — takes a de-vigged baseline
+  function `blend_probabilities`). Completed — takes a de-vigged baseline
   plus a list of research factors and produces a final home/draw/away
   probability. Each factor nudges one outcome by
   `magnitude * weight * max_total_shift` (added if `positive`, subtracted if
@@ -66,7 +56,7 @@ Saved predictions are listed back in the app.
   failure modes). All passing.
 - `src/scoring.py` — scoring/evaluation math layer (pure functions
   `validate_probabilities`, `actual_result_to_one_hot`, `brier_score`,
-  `log_loss`, `compare_prediction_to_baseline`). **Completed** — judges a
+  `log_loss`, `compare_prediction_to_baseline`). Completed — judges a
   predicted home/draw/away distribution against the actual outcome using two
   proper scoring rules. Brier score is the summed squared error vs the one-hot
   outcome (perfect = 0.0); log loss is `-log(p)` of the actual outcome's
@@ -79,34 +69,14 @@ Saved predictions are listed back in the app.
   result, perfect Brier = 0.0, worse-vs-better Brier ordering, good-vs-bad log
   loss ordering, invalid epsilon, comparison key set, and improvement/no-
   improvement marking). All passing.
-- `app.py` — minimal Streamlit shell. **Completed.** Imports `init_db`
-  (`src/db`), `decimal_odds_to_implied_probabilities` (`src/odds`), and
-  `blend_probabilities` (`src/predictor`); calls `init_db()` once at startup
-  (no row writes). Sections: Match (home/away/label text inputs, not saved),
-  Manual bookmaker odds (three decimal-odds number inputs, defaults
-  2.20/3.30/3.20, `min_value=1.01`), and Research factors (exactly 3 fixed rows,
-  each with enabled checkbox, target/direction selectboxes, magnitude/weight
-  sliders 0.0–1.0, and a note). A "Calculate prediction" button de-vigs the
-  odds, builds a factors list from enabled rows only, calls
-  `blend_probabilities`, and shows raw implied probs, overround/margin,
-  de-vigged baseline, blended prediction (with deltas), an applied-factor table,
-  and the predictor explanation. Calculation is wrapped in try/except → `st.error`.
-  Uses only `st.metric` / `st.write` / `st.table` / `st.json`; no custom CSS,
-  no charts. **Now also persists on demand:** the calculation is stashed in
-  `st.session_state`, a "Save prediction to local database" button attaches the
-  original decimal odds to the de-vig result and calls `save_prediction_flow`,
-  a success message reports the inserted ids, and a "Recent saved predictions"
-  table renders `list_recent_predictions()`. Writes happen **only** on the Save
-  click — never on rerun or on Calculate.
-- `requirements.txt` — **Completed.** Single dependency: `streamlit`. (Standard
+- `app.py` — Streamlit shell. Completed. Supports match creation, bookmaker de-vig calculation,
+  factor blending, manual flow saving, and post-match scoring of saved predictions.
+  Has dedicated "Score saved prediction" selectbox controls and a "Recent scored predictions" table.
+- `requirements.txt` — Completed. Single dependency: `streamlit`. (Standard
   library covers everything else.)
-- Public-repo readiness docs — **Completed (this session).** `README.md`
-  (rewritten for a future public repo: title, description, "What this is" /
-  "What this is not", local setup, status, contribution/security/license
-  pointers), `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
-  `LICENSE_RECOMMENDATION.md` (recommends MIT, mentions Apache-2.0 / GPLv3 —
-  decision pending), and `docs/PUBLIC_REPO_READINESS.md` (pre-publish
-  checklist). Documentation only — no app, DB, or dependency changes.
+- Public-repo readiness docs — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, `LICENSE_RECOMMENDATION.md` (MIT recommended, decision pending), and
+  `docs/PUBLIC_REPO_READINESS.md` (checklist).
 
 ## Current database status
 
@@ -117,75 +87,35 @@ Saved predictions are listed back in the app.
 - `matches` — home/away teams, kickoff, stage, status, scores
 - `signals` — bookmaker decimal odds + implied probabilities per match
 - `factors` — research factors (type, direction, magnitude, confidence, note)
-- `predictions` — blended home/draw/away probabilities + reasoning JSON
-
-> Note: an earlier plan listed the DB as a future task. It is already present —
-> verify with the validation commands below rather than re-creating it.
+- `predictions` — blended home/draw/away probabilities + reasoning JSON + actual result outcome + Brier & log-loss evaluation scores
 
 ## Next recommended task
 
-**Result entry + scoring persistence.** Now that predictions are saved, let the
-owner record the actual outcome for a saved match and score the prediction
-against the bookmaker baseline:
-
-1. add a `record_result(match_id, home_score, away_score)` (or
-   home/draw/away outcome) helper to `src/db.py` that updates `matches`
-   (`status`, `home_score`, `away_score`) for an existing row,
-2. in `app.py`, let the owner pick a saved prediction, enter the actual result,
-   and call the existing `src/scoring.py` functions
-   (`compare_prediction_to_baseline`) to show whether the research nudged the
-   probability in the right direction vs. the raw de-vigged baseline,
-3. optionally persist the scores (Brier / log-loss + deltas) — consider whether
-   this needs a new column/table and log the decision in `DECISIONS.md`,
-4. add `unittest` coverage against a temp DB.
-
-Keep it local-first, standard library + Streamlit only, respect every hard
-boundary in `AGENTS.md`, and do not introduce cloud/auth/scraping.
+**Add Football-Data.co.uk CSV import for historical results and odds backtesting.**
 
 ## Validation commands
 
 ```bash
-python3 src/db.py                       # idempotent: re-creates missing tables
-sqlite3 data/worldcup.db ".schema"      # confirm the five tables exist
-python3 -m compileall src               # catch syntax errors
-python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py  # math-layer tests
-streamlit run app.py                    # once app.py exists
+python3 src/db.py                       # idempotent: re-creates missing tables and applies schema updates
+sqlite3 data/worldcup.db ".schema"      # confirm the tables and columns exist
+python3 -m compileall src app.py        # catch syntax errors
+python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py  # run all 53 tests
+streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-09, DB persistence session):**
+**Last run (2026-06-10, Result entry + scoring persistence session):**
 `python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py` →
-`Ran 45 tests in 0.040s` / `OK` (all 45 passing — 5 odds + 15 predictor +
-12 scoring + 13 db).
+`Ran 53 tests in 0.120s` / `OK` (all 53 passing — 5 odds + 15 predictor +
+12 scoring + 21 db).
 `python3 -m compileall src app.py` → compiled, no errors.
-`streamlit run app.py` → not run in this environment (Streamlit not installed
-here); run locally after `python3 -m pip install -r requirements.txt` to confirm
-the Save button and recent-predictions table render.
-
-**Last run (2026-06-09, public-repo readiness docs session):**
-Documentation-only change; no tests required, but existing tests were run as a
-sanity check.
-`python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py` →
-`Ran 32 tests in 0.001s` / `OK`.
-`python3 -m compileall src app.py` → compiled, no errors. No app, DB, or
-dependency changes in this session.
 
 ## Known gaps
 
 - The app was **not run interactively** in the build environment (Streamlit
-  not installed there); the persistence helpers are verified via `test_db.py`
-  + `compileall`, but run `streamlit run app.py` locally to confirm the Save
-  button, success message, and recent-predictions table render as expected.
-- No result entry yet — saved matches keep their default `status='scheduled'`
-  with no scores. This is the next task.
-- Scoring math (`src/scoring.py`) exists but is not yet wired into any UI; it
-  only becomes usable once result entry exists.
-- Factor `weight` is stored inside `factors.note` text, not a dedicated column
-  (see `DECISIONS.md`). Reading factors back into the predictor would need to
-  parse the note; no reader does this yet.
-- No edit/delete of saved predictions yet (out of scope for this task).
-- Factors are limited to 3 fixed rows; no dynamic add/remove.
+  not installed there); the widgets are verified via `compileall` and database functions,
+  but run `streamlit run app.py` locally to confirm UI flow behaves correctly.
+- Factor `weight` is stored inside `factors.note` text, not a dedicated column.
+- No edit/delete of saved predictions yet.
+- Factors are limited to 3 fixed rows.
 - No AI note → factor parser yet.
-- **Actual `LICENSE` file not yet chosen/added.** Public-repo readiness docs are
-  in place, but the license decision is pending (see `LICENSE_RECOMMENDATION.md`
-  and `docs/PUBLIC_REPO_READINESS.md`). A `LICENSE` file must be added before the
-  repo is made public.
+- Actual `LICENSE` file not yet chosen/added.
