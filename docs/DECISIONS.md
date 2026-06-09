@@ -17,4 +17,4 @@ structural choice. Do not rewrite history — supersede with a new row instead.
 | 2026-06-09 | Prepare the repository for a possible future public/open-source release (added README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, LICENSE_RECOMMENDATION, and a public-repo readiness checklist). | Other developers may want to build on it, improve it, and contribute. Note: the actual license is **not chosen yet** — license decision is pending (see `LICENSE_RECOMMENDATION.md`); no `LICENSE` file added until the maintainer decides. | Accepted |
 | 2026-06-10 | Connect project to GitHub for version control and future contributor readiness. | Reduce manual handoff labour and allow future developers/agents to continue from the same source of truth. | Accepted |
 | 2026-06-10 | Use Football-Data.co.uk CSVs as the first historical/backtesting data source. | They provide free computer-ready football results and betting odds CSV/Excel data suitable for quantitative analysis without scraping. | Accepted |
-
+| 2026-06-10 | License project under MIT. | MIT is permissive, simple, widely understood, and supports broad developer reuse/contribution. | Accepted |

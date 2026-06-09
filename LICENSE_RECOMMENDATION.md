@@ -5,38 +5,26 @@
 
 ## Current status
 
-**No license has been chosen for this project yet.** While no `LICENSE` file is
-present, default copyright applies: others may *view* the code but may **not**
-freely use, modify, or distribute it. A license must be added before the repo is
-useful to other developers.
+**Decision Completed:** The project is now licensed under the **MIT License** (see [LICENSE](file:///Users/restolad/Desktop/WORLDCUP/LICENSE)).
 
-## Recommendation
+## Recommendation & Decision
 
-**MIT** — recommended default, if the goal is maximum adoption and simplicity.
+**MIT** — Chosen for maximum adoption, simplicity, and ease of contributions.
 It is short, permissive, widely understood, and the friendliest option for
 contributors who want to build on the project with minimal friction.
 
-**Apache-2.0** — a good alternative if an explicit **patent grant** matters to
-you. It is also permissive but adds an express patent license and clearer terms
-around contributions and trademarks, at the cost of being longer and slightly
-more involved than MIT.
+**Apache-2.0** — Considered but not chosen for now. It is a good alternative if an explicit **patent grant** matters, but this project does not currently need that extra patent-grant complexity.
 
-**GPLv3** — only choose this if you specifically want to **force derivatives to
-stay open-source** (copyleft). It requires anyone who distributes a modified
-version to also release their source under the GPL. Do not pick this unless that
-"derivatives must remain open" outcome is an explicit goal.
+**GPLv3** — Considered but not chosen. The project owner does not want to force derivative projects to remain open-source (copyleft), so a permissive license (MIT) was preferred over a restrictive copyleft license.
 
 ## Quick comparison
 
 | License    | Style      | Patent grant | Forces derivatives open? | Best when… |
 |------------|------------|--------------|--------------------------|------------|
-| MIT        | Permissive | No           | No                       | You want the simplest, most adopt-friendly option. |
+| MIT        | Permissive | No           | No                       | You want the simplest, most adopt-friendly option. (Chosen) |
 | Apache-2.0 | Permissive | Yes          | No                       | You want a patent grant and clearer contribution terms. |
 | GPLv3      | Copyleft   | Yes          | Yes                      | You want all derivatives to remain open-source. |
 
 ## TODO
 
-> **Before making repo public, choose a license and add a `LICENSE` file.**
-
-Until then, the README and `docs/DECISIONS.md` note that the license decision is
-pending.
+- [x] Choose a license and add a `LICENSE` file before making the repository public.

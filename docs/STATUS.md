@@ -13,10 +13,11 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 
 - **Status:** Connected to GitHub
 - **Repository URL:** [worldcup-prediction-tool](https://github.com/buildrr89/worldcup-prediction-tool)
-- **Visibility:** Private
-- **Latest pushed commit:** `b7edb58` ("Add Football-Data CSV importer")
+- **Visibility:** Private (pending public release)
+- **Latest pushed commit:** `b5f2f97` ("Add historical CSV backtest preview")
 - **Branch:** `main`
-- **Public release:** Pending (license not chosen yet)
+- **License:** MIT
+- **Public release:** Pending visibility change
 
 ## Completed files
 
@@ -119,4 +120,3 @@ streamlit run app.py                    # launch the app
 - No edit/delete of saved predictions yet.
 - Factors are limited to 3 fixed rows.
 - No AI note → factor parser yet.
-- Actual `LICENSE` file not yet chosen/added.

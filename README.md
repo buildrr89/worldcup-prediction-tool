@@ -83,7 +83,6 @@ committed.
 
 ## License
 
-**No license has been chosen yet.** Until one is added, default copyright rules
-apply and others may not freely reuse, modify, or distribute the code. See
-[LICENSE_RECOMMENDATION.md](LICENSE_RECOMMENDATION.md) for the recommendation
-and the pending decision.
+License: [MIT](LICENSE)
+
+See [LICENSE_RECOMMENDATION.md](LICENSE_RECOMMENDATION.md) for more details on the license decision.
