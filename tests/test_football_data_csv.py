@@ -20,6 +20,7 @@ from src.importers.football_data_csv import (
     parse_float,
     row_to_historical_match,
     load_csv,
+    load_csv_file,
     summarise_historical_matches,
     backtest_baseline,
 )
@@ -268,6 +269,70 @@ class TestFootballDataCSVImporter(unittest.TestCase):
         self.assertEqual(match["draw_decimal_odds"], 3.00)
         self.assertEqual(match["away_decimal_odds"], 2.80)
         self.assertEqual(match["odds_prefix"], "PS")
+
+    def test_13_load_csv_file_string_io(self):
+        """load_csv_file works with io.StringIO."""
+        import io
+        csv_data = (
+            "Date,HomeTeam,AwayTeam,FTR,B365H,B365D,B365A\n"
+            "20/11/2022,Qatar,Ecuador,A,3.20,3.10,2.40\n"
+            "21/11/2022,England,Iran,H,1.15,3.80,19.00\n"
+        )
+        file_obj = io.StringIO(csv_data)
+        matches = load_csv_file(file_obj)
+        self.assertEqual(len(matches), 2)
+        self.assertEqual(matches[0]["home_team"], "Qatar")
+        self.assertEqual(matches[1]["home_team"], "England")
+
+    def test_14_load_csv_file_bytes_io(self):
+        """load_csv_file works with io.BytesIO."""
+        import io
+        csv_data = (
+            "Date,HomeTeam,AwayTeam,FTR,B365H,B365D,B365A\n"
+            "20/11/2022,Qatar,Ecuador,A,3.20,3.10,2.40\n"
+            "21/11/2022,England,Iran,H,1.15,3.80,19.00\n"
+        )
+        file_obj = io.BytesIO(csv_data.encode("utf-8-sig"))
+        matches = load_csv_file(file_obj)
+        self.assertEqual(len(matches), 2)
+        self.assertEqual(matches[0]["home_team"], "Qatar")
+
+    def test_15_load_csv_file_bytes_direct(self):
+        """load_csv_file works with direct bytes input."""
+        csv_data = (
+            "Date,HomeTeam,AwayTeam,FTR,B365H,B365D,B365A\n"
+            "20/11/2022,Qatar,Ecuador,A,3.20,3.10,2.40\n"
+        )
+        matches = load_csv_file(csv_data.encode("utf-8"))
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["home_team"], "Qatar")
+
+    def test_16_load_csv_file_skips_incomplete(self):
+        """load_csv_file skips incomplete rows (missing/blank fields)."""
+        import io
+        csv_data = (
+            "Date,HomeTeam,AwayTeam,FTR,B365H,B365D,B365A\n"
+            "20/11/2022,Qatar,Ecuador,A,3.20,3.10,2.40\n"
+            "21/11/2022,England,Iran,,1.15,3.80,19.00\n"  # Missing FTR
+            "22/11/2022,Senegal,,A,6.00,3.80,1.60\n"      # Missing AwayTeam
+        )
+        file_obj = io.StringIO(csv_data)
+        matches = load_csv_file(file_obj)
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["home_team"], "Qatar")
+
+    def test_17_load_csv_file_error_line_number(self):
+        """load_csv_file includes the correct row number in invalid numeric value errors."""
+        import io
+        csv_data = (
+            "Date,HomeTeam,AwayTeam,FTR,B365H,B365D,B365A\n"
+            "20/11/2022,Qatar,Ecuador,A,3.20,3.10,2.40\n"
+            "21/11/2022,England,Iran,H,1.15,abc,19.00\n"  # Invalid odds on Row 3
+        )
+        file_obj = io.StringIO(csv_data)
+        with self.assertRaises(ValueError) as ctx:
+            load_csv_file(file_obj)
+        self.assertIn("Row 3", str(ctx.exception))
 
 
 if __name__ == "__main__":

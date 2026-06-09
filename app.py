@@ -26,6 +26,11 @@ from src.db import (
 )
 from src.odds import decimal_odds_to_implied_probabilities
 from src.predictor import blend_probabilities
+from src.importers.football_data_csv import (
+    load_csv_file,
+    summarise_historical_matches,
+    backtest_baseline,
+)
 
 # Ensure the local SQLite foundation exists. This does not write any rows; it
 # only creates the tables if they are missing. Idempotent and offline.
@@ -363,3 +368,79 @@ if scored:
     )
 else:
     st.write("No predictions scored yet.")
+
+
+# --- Historical CSV backtest preview ---------------------------------------
+st.header("Historical CSV backtest preview")
+st.caption(
+    "Upload a local Football-Data.co.uk-style CSV to preview matches, summary stats, "
+    "and baseline backtest results. No database writes happen here."
+)
+
+# 1. file uploader
+uploaded_file = st.file_uploader(
+    "Upload historical CSV file",
+    type=["csv"],
+    key="historical_csv_uploader"
+)
+
+# 2. select odds prefix
+odds_prefix = st.text_input(
+    "Odds prefix",
+    value="B365",
+    help="The column prefix for bookmaker odds. Examples: B365, PS.",
+    key="historical_odds_prefix"
+)
+
+if uploaded_file is not None:
+    try:
+        # 3. parse matches
+        matches = load_csv_file(uploaded_file, odds_prefix=odds_prefix)
+        
+        # 6. Show clear messages: no DB writes happen yet, preview only, skipped rows
+        st.info(
+            "ℹ️ **Preview mode active.** No database writes will occur. "
+            f"Unsupported or missing odds rows using prefix `{odds_prefix}` are automatically skipped."
+        )
+        
+        if not matches:
+            st.warning(f"No valid matches found with odds prefix `{odds_prefix}` in the uploaded file.")
+        else:
+            # summarise and backtest
+            summary = summarise_historical_matches(matches)
+            backtest = backtest_baseline(matches)
+            
+            # 4. Show summary and backtest metrics
+            st.subheader("Backtest summary")
+            
+            col_m1 = st.columns(4)
+            col_m1[0].metric("Valid matches", summary["match_count"])
+            col_m1[1].metric("Home wins", summary["home_wins"])
+            col_m1[2].metric("Draws", summary["draws"])
+            col_m1[3].metric("Away wins", summary["away_wins"])
+            
+            col_m2 = st.columns(3)
+            col_m2[0].metric("Avg bookmaker margin", _pct(summary["average_margin"]))
+            col_m2[1].metric("Avg baseline Brier", f"{backtest['average_brier']:.4f}")
+            col_m2[2].metric("Avg baseline Log Loss", f"{backtest['average_log_loss']:.4f}")
+            
+            # 5. Show a simple preview table of the first 10 parsed matches
+            st.subheader("First 10 matches preview")
+            preview_rows = []
+            for m in matches[:10]:
+                preview_rows.append({
+                    "date": m["date"],
+                    "home_team": m["home_team"],
+                    "away_team": m["away_team"],
+                    "actual_result": m["actual_result"],
+                    "home_decimal_odds": f"{m['home_decimal_odds']:.2f}",
+                    "draw_decimal_odds": f"{m['draw_decimal_odds']:.2f}",
+                    "away_decimal_odds": f"{m['away_decimal_odds']:.2f}",
+                    "baseline home/draw/away probabilities": f"{_pct(m['baseline']['home'])} / {_pct(m['baseline']['draw'])} / {_pct(m['baseline']['away'])}",
+                    "margin": _pct(m["margin"])
+                })
+            st.table(preview_rows)
+            
+    except Exception as error:
+        # 7. Handle errors with st.error(str(error))
+        st.error(str(error))

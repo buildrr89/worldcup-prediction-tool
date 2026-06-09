@@ -7,7 +7,7 @@
 
 ## Current stage
 
-Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, and Football-Data.co.uk CSV importing foundation are complete. Standard library parsing translates historical match and betting odds CSVs into baseline probabilities, calculates summary statistics, and performs baseline backtesting evaluation (Brier score and Log Loss). The app includes a SQLite DB with schema, de-vig and blending math, persistence validation, and post-match scoring logic.
+Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, and Streamlit historical CSV upload/import preview are complete. Standard library parsing translates uploaded historical match and betting odds CSVs in-memory to baseline probabilities, calculates summary statistics, and performs baseline backtesting evaluation (Brier score and Log Loss), presenting visual preview results. No database writes are performed during CSV preview.
 
 ## GitHub connection status
 
@@ -77,8 +77,8 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 - Public-repo readiness docs — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
   `CODE_OF_CONDUCT.md`, `LICENSE_RECOMMENDATION.md` (MIT recommended, decision pending), and
   `docs/PUBLIC_REPO_READINESS.md` (checklist).
-- `src/importers/__init__.py` and `src/importers/football_data_csv.py` — Football-Data.co.uk CSV importer/backtesting foundation. Completed — parses historical results/odds, calculates de-vigged baseline probabilities, computes summary statistics (wins, margins), and performs baseline backtesting (Brier score and log loss).
-- `tests/test_football_data_csv.py` — 12 `unittest` tests for the CSV importer/backtester (result mapping, float parsing, match mapping, load CSV with error line numbers, summarisation, backtest calculations, and alternative odds prefixes). All passing.
+- `src/importers/__init__.py` and `src/importers/football_data_csv.py` — Football-Data.co.uk CSV importer/backtesting foundation. Completed — parses historical results/odds from filesystem path or file-like/bytes objects, calculates de-vigged baseline probabilities, computes summary statistics (wins, margins), and performs baseline backtesting (Brier score and log loss).
+- `tests/test_football_data_csv.py` — 17 `unittest` tests for the CSV importer/backtester (result mapping, float parsing, match mapping, load CSV with error line numbers, load CSV file from String/Bytes streams, invalid row skipping, error row-attribution, summarisation, backtest calculations, and alternative odds prefixes). All passing.
 
 ## Current database status
 
@@ -93,7 +93,7 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 
 ## Next recommended task
 
-**Add a Streamlit historical CSV upload/import page that previews summary and baseline backtest results without writing to DB yet.**
+**Add DB persistence for selected historical CSV imports after preview approval.**
 
 ## Validation commands
 
@@ -101,13 +101,13 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 python3 src/db.py                       # idempotent: re-creates missing tables and applies schema updates
 sqlite3 data/worldcup.db ".schema"      # confirm the tables and columns exist
 python3 -m compileall src app.py        # catch syntax errors
-python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py  # run all 65 tests
+python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py  # run all 70 tests
 streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-10, CSV Importer foundation session):**
+**Last run (2026-06-10, Historical CSV preview section session):**
 `python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py` →
-`Ran 65 tests in 0.118s` / `OK` (all 65 passing — 5 odds + 15 predictor + 12 scoring + 21 db + 12 importer).
+`Ran 70 tests in 0.121s` / `OK` (all 70 passing — 5 odds + 15 predictor + 12 scoring + 21 db + 17 importer).
 `python3 -m compileall src app.py` → compiled, no errors.
 
 ## Known gaps

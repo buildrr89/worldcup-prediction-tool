@@ -52,13 +52,12 @@ streamlit run app.py
 
 ## Current status
 
-The core math layers (odds de-vig, deterministic predictor/blending, scoring)
-are built and tested. A Streamlit shell on top lets you enter odds and factors,
-see the baseline and blended probabilities, and explicitly save the full flow
-(match, signal, factors, prediction) to the local SQLite database. The next
-planned task is result entry + scoring persistence. See
-[docs/STATUS.md](docs/STATUS.md) for the authoritative, up-to-date picture
-(current stage, next task, known gaps).
+The core math layers (odds de-vig, deterministic predictor/blending, scoring) are built and tested. A Streamlit shell on top lets you:
+- Enter odds and factors manually to save the full prediction flow.
+- Score saved predictions post-match.
+- Upload a local Football-Data.co.uk-style CSV in the **Historical CSV backtest preview** section to view match statistics and baseline bookmaker backtest metrics (Brier score and log loss) in-memory. **Note:** CSV upload is strictly for preview/backtesting; no database writes occur during preview.
+
+See [docs/STATUS.md](docs/STATUS.md) for the authoritative, up-to-date picture (current stage, next task, known gaps).
 
 ## Start here
 

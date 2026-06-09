@@ -6,6 +6,7 @@ Computes baseline probabilities, and provides summary and backtesting evaluation
 """
 
 import csv
+import io
 from pathlib import Path
 from src.odds import decimal_odds_to_implied_probabilities
 from src.scoring import brier_score, log_loss
@@ -125,6 +126,51 @@ def row_to_historical_match(row: dict, odds_prefix: str = "B365") -> dict | None
     }
 
 
+def load_csv_file(file_obj, odds_prefix: str = "B365") -> list[dict]:
+    """Read a CSV from a file-like object or bytes, and return cleaned matches.
+
+    file_obj can be:
+    - bytes
+    - a file-like object returning bytes (e.g. BytesIO, Streamlit UploadedFile)
+    - a text stream/file-like object returning strings (e.g. StringIO, open file)
+
+    Use csv.DictReader. Convert rows with row_to_historical_match. Skip rows
+    that return None. Return list of cleaned matches.
+    Include row number in error messages when a row has invalid data.
+    """
+    if isinstance(file_obj, bytes):
+        text = file_obj.decode("utf-8-sig")
+        f = io.StringIO(text)
+    elif hasattr(file_obj, "read"):
+        content = file_obj.read()
+        if isinstance(content, bytes):
+            text = content.decode("utf-8-sig")
+        else:
+            text = content
+        f = io.StringIO(text)
+    else:
+        # Fallback if it's already an iterable of strings/bytes (like a list of lines)
+        lines = []
+        for line in file_obj:
+            if isinstance(line, bytes):
+                lines.append(line.decode("utf-8-sig"))
+            else:
+                lines.append(line)
+        f = lines
+
+    matches = []
+    reader = csv.DictReader(f)
+    for row in reader:
+        line_num = reader.line_num
+        try:
+            match = row_to_historical_match(row, odds_prefix=odds_prefix)
+            if match is not None:
+                matches.append(match)
+        except ValueError as e:
+            raise ValueError(f"Row {line_num}: {e}")
+    return matches
+
+
 def load_csv(path: str | Path, odds_prefix: str = "B365") -> list[dict]:
     """Read a CSV file from disk.
 
@@ -132,18 +178,8 @@ def load_csv(path: str | Path, odds_prefix: str = "B365") -> list[dict]:
     that return None. Return list of cleaned matches.
     Include row number in error messages when a row has invalid data.
     """
-    matches = []
     with open(path, mode="r", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            line_num = reader.line_num
-            try:
-                match = row_to_historical_match(row, odds_prefix=odds_prefix)
-                if match is not None:
-                    matches.append(match)
-            except ValueError as e:
-                raise ValueError(f"Row {line_num}: {e}")
-    return matches
+        return load_csv_file(f, odds_prefix=odds_prefix)
 
 
 def summarise_historical_matches(matches: list[dict]) -> dict:
