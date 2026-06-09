@@ -7,7 +7,7 @@
 
 ## Current stage
 
-Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, a baseline backtest dashboard comparing saved historical CSV import batches, a legally safe synthetic sample CSV quick-start demo flow, public collaboration configuration, and security disclosure reporting are complete. The Streamlit `app.py` has been refactored into modular submodules under `src/ui/` without changing any behavior or state logic.
+Core math layer, manual SQLite persistence, post-match prediction scoring/persistence, Football-Data.co.uk CSV importing foundation, Streamlit historical CSV upload/import preview, DB persistence for selected historical CSV imports after preview approval, a baseline backtest dashboard comparing saved historical CSV import batches, a legally safe synthetic sample CSV quick-start demo flow, public collaboration configuration, security disclosure reporting, and an aggregate calibration dashboard for saved manual predictions vs bookmaker baseline are complete. The Streamlit `app.py` has been refactored into modular submodules under `src/ui/` without changing any behavior or state logic.
 
 ## GitHub connection status
 
@@ -32,8 +32,9 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
   `list_unscored_predictions`, `list_scored_predictions`,
   `create_historical_import_batch`, `create_historical_match`,
   `save_historical_import`, `list_historical_import_batches`, `list_historical_matches`,
-  `get_historical_batch_summary`, `list_historical_batch_summaries`, and `compare_historical_batches`.
-- `tests/test_db.py` — 37 `unittest` tests for the persistence, migration, historical CSV import, and batch comparison layers, each
+  `get_historical_batch_summary`, `list_historical_batch_summaries`, `compare_historical_batches`,
+  `get_prediction_performance_summary`, `list_prediction_performance_rows`, and `build_prediction_calibration_bins`.
+- `tests/test_db.py` — 41 `unittest` tests for the persistence, migration, historical CSV import, batch comparison, and manual prediction calibration/performance layers, each
   against a `tempfile.TemporaryDirectory` DB. All passing.
 - `src/odds.py` — odds de-vig math layer (pure function
   `decimal_odds_to_implied_probabilities`). Completed — converts 1X2
@@ -79,7 +80,8 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
   - `src/ui/historical_csv.py` — Upload historical CSV, preview summary/baseline backtest metrics, 10-match preview table, DB persist action, and recent batches list.
   - `src/ui/historical_dashboard.py` — Historical backtest batch metrics dashboard, batch comparison table, Brier/LogLoss bar chart, and result distribution table.
   - `src/ui/demo.py` — Legally safe quick-start demo explanation and sample CSV download button.
-- `tests/test_ui_imports.py` — Smoke tests ensuring UI modules import correctly and expose required render functions (conditional skip if Streamlit is not installed).
+  - `src/ui/prediction_performance.py` — Manual prediction performance dashboard displaying average Brier scores, log losses, deltas, outcome counts, and probability calibration bins.
+- `tests/test_ui_imports.py` — Smoke tests ensuring UI modules import correctly and expose required render functions including prediction performance (conditional skip if Streamlit is not installed).
 - `requirements.txt` — Completed. Single dependency: `streamlit`. (Standard
   library covers everything else.)
 - Public-repo readiness docs & templates — Completed. `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
@@ -104,7 +106,7 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 
 ## Next recommended task
 
-**Add aggregate calibration dashboard for saved manual predictions vs bookmaker baseline.**
+**Add factor weight column to factors schema and remove note-field weight hack.**
 
 ## Validation commands
 
@@ -112,13 +114,13 @@ Core math layer, manual SQLite persistence, post-match prediction scoring/persis
 python3 src/db.py                       # idempotent: re-creates missing tables and applies schema updates
 sqlite3 data/worldcup.db ".schema"      # confirm the tables and columns exist
 python3 -m compileall src app.py        # catch syntax errors
-python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py tests/test_ui_imports.py  # run all 93 tests
+python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py tests/test_ui_imports.py  # run all 97 tests
 streamlit run app.py                    # launch the app
 ```
 
-**Last run (2026-06-10, app.py UI Refactoring):**
+**Last run (2026-06-10, prediction performance dashboard):**
 `python3 -m unittest tests/test_odds.py tests/test_predictor.py tests/test_scoring.py tests/test_db.py tests/test_football_data_csv.py tests/test_ui_imports.py` →
-`Ran 93 tests in 0.238s` / `OK` (all 92 passing, 1 skipped in environment without Streamlit).
+`Ran 97 tests in 0.263s` / `OK` (all 96 passing, 1 skipped in environment without Streamlit).
 `python3 -m compileall src app.py` → compiled successfully.
 
 ## Known gaps

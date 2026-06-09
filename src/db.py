@@ -1030,9 +1030,203 @@ def compare_historical_batches(batch_ids: list[int] | None = None) -> dict:
     }
 
 
+def get_prediction_performance_summary() -> dict:
+    """Return an aggregate calibration/performance summary for saved manual predictions.
 
+    Compares manual predictions to the baseline.
+    If no scored predictions exist, returns scored_count = 0 and None for averages/best/worst fields.
+    Uses only predictions where scored_at IS NOT NULL.
+    """
+    conn = get_connection()
+    try:
+        count_row = conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE scored_at IS NOT NULL"
+        ).fetchone()
+        scored_count = count_row[0] if count_row else 0
+
+        if scored_count == 0:
+            return {
+                "scored_count": 0,
+                "average_prediction_brier": None,
+                "average_baseline_brier": None,
+                "average_brier_delta": None,
+                "average_prediction_log_loss": None,
+                "average_baseline_log_loss": None,
+                "average_log_loss_delta": None,
+                "brier_improved_count": 0,
+                "brier_worsened_count": 0,
+                "brier_tied_count": 0,
+                "log_loss_improved_count": 0,
+                "log_loss_worsened_count": 0,
+                "log_loss_tied_count": 0,
+                "best_prediction_brier": None,
+                "worst_prediction_brier": None,
+                "best_prediction_log_loss": None,
+                "worst_prediction_log_loss": None,
+            }
+
+        row = conn.execute(
+            """
+            SELECT
+                AVG(prediction_brier) as average_prediction_brier,
+                AVG(baseline_brier) as average_baseline_brier,
+                AVG(brier_delta) as average_brier_delta,
+                AVG(prediction_log_loss) as average_prediction_log_loss,
+                AVG(baseline_log_loss) as average_baseline_log_loss,
+                AVG(log_loss_delta) as average_log_loss_delta,
+                SUM(CASE WHEN brier_delta < 0 THEN 1 ELSE 0 END) as brier_improved_count,
+                SUM(CASE WHEN brier_delta > 0 THEN 1 ELSE 0 END) as brier_worsened_count,
+                SUM(CASE WHEN brier_delta = 0 THEN 1 ELSE 0 END) as brier_tied_count,
+                SUM(CASE WHEN log_loss_delta < 0 THEN 1 ELSE 0 END) as log_loss_improved_count,
+                SUM(CASE WHEN log_loss_delta > 0 THEN 1 ELSE 0 END) as log_loss_worsened_count,
+                SUM(CASE WHEN log_loss_delta = 0 THEN 1 ELSE 0 END) as log_loss_tied_count,
+                MIN(prediction_brier) as best_prediction_brier,
+                MAX(prediction_brier) as worst_prediction_brier,
+                MIN(prediction_log_loss) as best_prediction_log_loss,
+                MAX(prediction_log_loss) as worst_prediction_log_loss
+            FROM predictions
+            WHERE scored_at IS NOT NULL
+            """
+        ).fetchone()
+
+        return {
+            "scored_count": scored_count,
+            "average_prediction_brier": row[0],
+            "average_baseline_brier": row[1],
+            "average_brier_delta": row[2],
+            "average_prediction_log_loss": row[3],
+            "average_baseline_log_loss": row[4],
+            "average_log_loss_delta": row[5],
+            "brier_improved_count": row[6] or 0,
+            "brier_worsened_count": row[7] or 0,
+            "brier_tied_count": row[8] or 0,
+            "log_loss_improved_count": row[9] or 0,
+            "log_loss_worsened_count": row[10] or 0,
+            "log_loss_tied_count": row[11] or 0,
+            "best_prediction_brier": row[12],
+            "worst_prediction_brier": row[13],
+            "best_prediction_log_loss": row[14],
+            "worst_prediction_log_loss": row[15],
+        }
+    finally:
+        conn.close()
+
+
+def list_prediction_performance_rows(limit: int = 50) -> list[dict]:
+    """Return recent scored predictions with match info, newest scored first.
+
+    Validates that limit is a positive integer.
+    """
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise ValueError(f"limit must be an integer, got {limit!r}")
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit!r}")
+
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                p.id AS prediction_id,
+                p.match_id AS match_id,
+                m.home_team AS home_team,
+                m.away_team AS away_team,
+                p.actual_result AS actual_result,
+                p.prediction_brier AS prediction_brier,
+                p.baseline_brier AS baseline_brier,
+                p.brier_delta AS brier_delta,
+                p.prediction_log_loss AS prediction_log_loss,
+                p.baseline_log_loss AS baseline_log_loss,
+                p.log_loss_delta AS log_loss_delta,
+                p.scored_at AS scored_at,
+                p.created_at AS created_at
+            FROM predictions p
+            JOIN matches m ON m.id = p.match_id
+            WHERE p.scored_at IS NOT NULL
+            ORDER BY p.scored_at DESC, p.id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def build_prediction_calibration_bins(bin_size: float = 0.1) -> list[dict]:
+    """Build a reliability/calibration table across scored predictions using a one-vs-rest method.
+
+    For each scored prediction, generates three rows (home, draw, away probabilities
+    vs whether the outcome occurred) and bins them by predicted probability.
+    """
+    if isinstance(bin_size, bool) or not isinstance(bin_size, (int, float)):
+        raise ValueError(f"bin_size must be a number, got {bin_size!r}")
+    if not (0.0 < bin_size <= 0.5):
+        raise ValueError(f"bin_size must be between 0.0 (exclusive) and 0.5 (inclusive), got {bin_size!r}")
+
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT home_probability, draw_probability, away_probability, actual_result
+            FROM predictions
+            WHERE scored_at IS NOT NULL
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return []
+
+    pairs = []
+    for r in rows:
+        home_p = r["home_probability"]
+        draw_p = r["draw_probability"]
+        away_p = r["away_probability"]
+        actual = r["actual_result"]
+
+        pairs.append((home_p, 1 if actual == "home" else 0))
+        pairs.append((draw_p, 1 if actual == "draw" else 0))
+        pairs.append((away_p, 1 if actual == "away" else 0))
+
+    num_bins = int(round(1.0 / bin_size))
+    bins = {}
+    for i in range(num_bins):
+        bins[i] = {
+            "lower": i * bin_size,
+            "probabilities": [],
+            "observed": [],
+        }
+
+    for p, obs in pairs:
+        p_clamped = min(max(p, 0.0), 1.0)
+        bin_idx = int(p_clamped / bin_size + 1e-9)
+        if bin_idx >= num_bins:
+            bin_idx = num_bins - 1
+        bins[bin_idx]["probabilities"].append(p_clamped)
+        bins[bin_idx]["observed"].append(obs)
+
+    result = []
+    for i in range(num_bins):
+        probs = bins[i]["probabilities"]
+        obs = bins[i]["observed"]
+        count = len(probs)
+        if count > 0:
+            result.append({
+                "bin": round(float(bins[i]["lower"]), 5),
+                "count": count,
+                "average_predicted_probability": sum(probs) / count,
+                "actual_hit_rate": sum(obs) / count,
+            })
+
+    result.sort(key=lambda x: x["bin"])
+    return result
 
 
 if __name__ == "__main__":
     init_db()
     print(f"Initialized database at {DB_PATH}")
+

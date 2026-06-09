@@ -721,5 +721,167 @@ class TestHistoricalBatchDashboardHelpers(DBTestCase):
             db.list_historical_batch_summaries(True)
 
 
+class TestPredictionPerformanceHelpers(DBTestCase):
+    def test_summary_empty_db(self):
+        """get_prediction_performance_summary returns empty summary when no scored predictions exist."""
+        summary = db.get_prediction_performance_summary()
+        self.assertEqual(summary["scored_count"], 0)
+        self.assertIsNone(summary["average_prediction_brier"])
+        self.assertIsNone(summary["average_baseline_brier"])
+        self.assertIsNone(summary["average_brier_delta"])
+        self.assertIsNone(summary["average_prediction_log_loss"])
+        self.assertIsNone(summary["average_baseline_log_loss"])
+        self.assertIsNone(summary["average_log_loss_delta"])
+        self.assertEqual(summary["brier_improved_count"], 0)
+        self.assertEqual(summary["brier_worsened_count"], 0)
+        self.assertEqual(summary["brier_tied_count"], 0)
+        self.assertEqual(summary["log_loss_improved_count"], 0)
+        self.assertEqual(summary["log_loss_worsened_count"], 0)
+        self.assertEqual(summary["log_loss_tied_count"], 0)
+        self.assertIsNone(summary["best_prediction_brier"])
+        self.assertIsNone(summary["worst_prediction_brier"])
+        self.assertIsNone(summary["best_prediction_log_loss"])
+        self.assertIsNone(summary["worst_prediction_log_loss"])
+
+    def test_summary_averages_and_counts(self):
+        """Summary computes averages correctly and counts improved/worsened/tied outcomes for Brier and log-loss."""
+        match1 = {"home_team": "Brazil", "away_team": "Croatia"}
+        pred1 = {
+            "home": 0.5, "draw": 0.3, "away": 0.2,
+            "baseline": {"home": 0.4, "draw": 0.3, "away": 0.3},
+            "applied_factors": [], "max_total_shift": 0.15, "explanation": "test"
+        }
+        flow1 = db.save_prediction_flow(match1, VALID_ODDS_RESULT, [], pred1)
+
+        match2 = {"home_team": "France", "away_team": "Spain"}
+        pred2 = {
+            "home": 0.2, "draw": 0.3, "away": 0.5,
+            "baseline": {"home": 0.3, "draw": 0.3, "away": 0.4},
+            "applied_factors": [], "max_total_shift": 0.15, "explanation": "test"
+        }
+        flow2 = db.save_prediction_flow(match2, VALID_ODDS_RESULT, [], pred2)
+
+        match3 = {"home_team": "Germany", "away_team": "Italy"}
+        pred3 = {
+            "home": 0.34, "draw": 0.33, "away": 0.33,
+            "baseline": {"home": 0.34, "draw": 0.33, "away": 0.33},
+            "applied_factors": [], "max_total_shift": 0.15, "explanation": "test"
+        }
+        flow3 = db.save_prediction_flow(match3, VALID_ODDS_RESULT, [], pred3)
+
+        db.score_prediction(flow1["prediction_id"], "home")
+        db.score_prediction(flow2["prediction_id"], "home")
+        db.score_prediction(flow3["prediction_id"], "draw")
+
+        summary = db.get_prediction_performance_summary()
+        self.assertEqual(summary["scored_count"], 3)
+        self.assertAlmostEqual(summary["average_prediction_brier"], (0.38 + 0.98 + (0.34**2 + 0.67**2 + 0.33**2)) / 3.0)
+        self.assertAlmostEqual(summary["average_brier_delta"], (-0.16 + 0.24 + 0.0) / 3.0)
+
+        self.assertEqual(summary["brier_improved_count"], 1)
+        self.assertEqual(summary["brier_worsened_count"], 1)
+        self.assertEqual(summary["brier_tied_count"], 1)
+
+        self.assertEqual(summary["log_loss_improved_count"], 1)
+        self.assertEqual(summary["log_loss_worsened_count"], 1)
+        self.assertEqual(summary["log_loss_tied_count"], 1)
+
+        self.assertAlmostEqual(summary["best_prediction_brier"], min(0.38, 0.98, (0.34**2 + 0.67**2 + 0.33**2)))
+        self.assertAlmostEqual(summary["worst_prediction_brier"], 0.98)
+
+    def test_list_prediction_performance_rows(self):
+        """list_prediction_performance_rows returns newest scored predictions first and validates limit."""
+        match1 = {"home_team": "Brazil", "away_team": "Croatia"}
+        flow1 = db.save_prediction_flow(match1, VALID_ODDS_RESULT, [], VALID_PREDICTION)
+        db.score_prediction(flow1["prediction_id"], "home")
+
+        match2 = {"home_team": "France", "away_team": "Spain"}
+        flow2 = db.save_prediction_flow(match2, VALID_ODDS_RESULT, [], VALID_PREDICTION)
+        db.score_prediction(flow2["prediction_id"], "draw")
+
+        rows = db.list_prediction_performance_rows(limit=50)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["prediction_id"], flow2["prediction_id"])
+        self.assertEqual(rows[1]["prediction_id"], flow1["prediction_id"])
+
+        row = rows[0]
+        self.assertIn("prediction_id", row)
+        self.assertIn("match_id", row)
+        self.assertEqual(row["home_team"], "France")
+        self.assertEqual(row["away_team"], "Spain")
+        self.assertEqual(row["actual_result"], "draw")
+        self.assertIn("prediction_brier", row)
+        self.assertIn("baseline_brier", row)
+        self.assertIn("brier_delta", row)
+        self.assertIn("prediction_log_loss", row)
+        self.assertIn("baseline_log_loss", row)
+        self.assertIn("log_loss_delta", row)
+        self.assertIsNotNone(row["scored_at"])
+        self.assertIsNotNone(row["created_at"])
+
+        with self.assertRaises(ValueError):
+            db.list_prediction_performance_rows(limit=0)
+        with self.assertRaises(ValueError):
+            db.list_prediction_performance_rows(limit=-1)
+        with self.assertRaises(ValueError):
+            db.list_prediction_performance_rows(limit="10")
+        with self.assertRaises(ValueError):
+            db.list_prediction_performance_rows(limit=True)
+
+    def test_calibration_bins(self):
+        """build_prediction_calibration_bins returns empty when no scored predictions exist, and meaningful bins using one-vs-rest rows."""
+        self.assertEqual(db.build_prediction_calibration_bins(), [])
+
+        match1 = {"home_team": "Brazil", "away_team": "Croatia"}
+        pred1 = {
+            "home": 0.60, "draw": 0.30, "away": 0.10,
+            "baseline": {"home": 0.4, "draw": 0.3, "away": 0.3},
+            "applied_factors": [], "max_total_shift": 0.15, "explanation": "test"
+        }
+        flow1 = db.save_prediction_flow(match1, VALID_ODDS_RESULT, [], pred1)
+        db.score_prediction(flow1["prediction_id"], "home")
+
+        match2 = {"home_team": "France", "away_team": "Spain"}
+        pred2 = {
+            "home": 0.15, "draw": 0.25, "away": 0.60,
+            "baseline": {"home": 0.3, "draw": 0.3, "away": 0.4},
+            "applied_factors": [], "max_total_shift": 0.15, "explanation": "test"
+        }
+        flow2 = db.save_prediction_flow(match2, VALID_ODDS_RESULT, [], pred2)
+        db.score_prediction(flow2["prediction_id"], "draw")
+
+        bins = db.build_prediction_calibration_bins(bin_size=0.1)
+        self.assertEqual(len(bins), 4)
+
+        self.assertEqual(sum(b["count"] for b in bins), 6)
+
+        self.assertAlmostEqual(bins[0]["bin"], 0.1)
+        self.assertEqual(bins[0]["count"], 2)
+        self.assertAlmostEqual(bins[0]["average_predicted_probability"], 0.125)
+        self.assertAlmostEqual(bins[0]["actual_hit_rate"], 0.0)
+
+        self.assertAlmostEqual(bins[1]["bin"], 0.2)
+        self.assertEqual(bins[1]["count"], 1)
+        self.assertAlmostEqual(bins[1]["average_predicted_probability"], 0.25)
+        self.assertAlmostEqual(bins[1]["actual_hit_rate"], 1.0)
+
+        self.assertAlmostEqual(bins[3]["bin"], 0.6)
+        self.assertEqual(bins[3]["count"], 2)
+        self.assertAlmostEqual(bins[3]["average_predicted_probability"], 0.6)
+        self.assertAlmostEqual(bins[3]["actual_hit_rate"], 0.5)
+
+        with self.assertRaises(ValueError):
+            db.build_prediction_calibration_bins(bin_size=0.0)
+        with self.assertRaises(ValueError):
+            db.build_prediction_calibration_bins(bin_size=-0.1)
+        with self.assertRaises(ValueError):
+            db.build_prediction_calibration_bins(bin_size=0.6)
+        with self.assertRaises(ValueError):
+            db.build_prediction_calibration_bins(bin_size="0.1")
+        with self.assertRaises(ValueError):
+            db.build_prediction_calibration_bins(bin_size=True)
+
+
 if __name__ == "__main__":
     unittest.main()
+

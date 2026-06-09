@@ -24,6 +24,7 @@ from src.ui.saved_predictions import (
     render_recent_scored_predictions,
     render_score_saved_prediction,
 )
+from src.ui.prediction_performance import render_prediction_performance_dashboard
 
 # Ensure the local SQLite foundation exists. This does not write any rows; it
 # only creates the tables if they are missing. Idempotent and offline.
@@ -46,6 +47,9 @@ render_manual_prediction()
 render_recent_predictions()
 render_score_saved_prediction()
 render_recent_scored_predictions()
+
+# Render manual prediction performance dashboard
+render_prediction_performance_dashboard()
 
 # Render historical CSV backtest preview and uploader
 st.header("Historical CSV backtest preview")

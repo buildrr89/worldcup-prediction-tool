@@ -29,6 +29,7 @@ class TestUIImports(unittest.TestCase):
         )
         from src.ui.historical_dashboard import render_historical_dashboard
         from src.ui.demo import render_quick_start_demo
+        from src.ui.prediction_performance import render_prediction_performance_dashboard
 
         self.assertTrue(callable(_pct))
         self.assertTrue(callable(render_manual_prediction))
@@ -40,3 +41,4 @@ class TestUIImports(unittest.TestCase):
         self.assertTrue(callable(render_recent_historical_batches))
         self.assertTrue(callable(render_historical_dashboard))
         self.assertTrue(callable(render_quick_start_demo))
+        self.assertTrue(callable(render_prediction_performance_dashboard))

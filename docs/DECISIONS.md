@@ -24,4 +24,6 @@ structural choice. Do not rewrite history — supersede with a new row instead.
 | 2026-06-10 | Use GitHub issue templates and label source-of-truth for public collaboration. | Public contributors need structured ways to report bugs, propose data sources, and suggest improvements without violating local-first, licensing, privacy, or betting-disclaimer boundaries. | Accepted |
 | 2026-06-10 | Normalize imported historical match dates to ISO-8601 YYYY-MM-DD. | Raw mixed CSV date formats break chronological sorting, dashboard comparisons, and future analytics. | Accepted |
 | 2026-06-10 | Keep Streamlit single-entry app but split UI sections into `src/ui` modules. | Preserves simple `streamlit run app.py` workflow while reducing monolithic app complexity and making future contributor work safer. | Accepted |
+| 2026-06-10 | Evaluate manual prediction performance against bookmaker baseline using aggregate Brier score, log loss, improvement deltas, and calibration bins. | The tool must honestly show whether user research factors improve or worsen the probabilistic baseline over time. | Accepted |
+
 
